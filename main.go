@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	//"log"
+	"io"
 	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -78,6 +79,7 @@ type model struct {
 	groupSelected  list.Item
 	streamSelected list.Item
 	mode           mode
+	log            io.Writer
 }
 
 func (m model) Init() tea.Cmd {
@@ -85,6 +87,7 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	m.log.Write([]byte(fmt.Sprintf("%+v\n", msg)))
 	switch msg := msg.(type) {
 	case logGroupMsg:
 		items := []list.Item{}
@@ -99,12 +102,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case logStreamMsg:
 		items := []list.Item{}
 		for _, stream := range msg {
+			m.log.Write([]byte(fmt.Sprintf("Log Stream: %s\n", *stream.LogStreamName)))
 			items = append(items, item{
 				title: *stream.LogStreamName,
 			})
 		}
 		m.streamsList.SetItems(items)
 		m.logStreams = msg
+	case tea.WindowSizeMsg:
+		h, v := docStyle.GetFrameSize()
+		m.groupsList.SetSize(msg.Width-h, msg.Height-v)
+		m.streamsList.SetSize(msg.Width-h, msg.Height-v)
+		//m.viewport.SetSize(msg.Width-h, msg.Height-v)
 	}
 
 	switch m.mode {
@@ -136,9 +145,6 @@ func (m model) updateGroups(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
-	case tea.WindowSizeMsg:
-		h, v := docStyle.GetFrameSize()
-		m.groupsList.SetSize(msg.Width-h, msg.Height-v)
 	}
 	var cmd tea.Cmd
 	m.groupsList, cmd = m.groupsList.Update(msg)
@@ -163,9 +169,6 @@ func (m model) updateStreams(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.mode = Groups
 			return m, nil
 		}
-	case tea.WindowSizeMsg:
-		h, v := docStyle.GetFrameSize()
-		m.streamsList.SetSize(msg.Width-h, msg.Height-v)
 	}
 
 	var cmd tea.Cmd
@@ -241,7 +244,17 @@ func fetchLogStreams(client *cloudwatchlogs.Client, logGroupName string) ([]type
 }
 
 func main() {
+	var log *os.File
+	if _, ok := os.LookupEnv("DEBUG"); ok {
+		var err error
+		log, err = os.OpenFile("messages.log", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
+		if err != nil {
+			os.Exit(1)
+		}
+	}
 	m := initialModel()
+	m.log = log
+	m.viewport.SetContent("TEST CONTENT")
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
