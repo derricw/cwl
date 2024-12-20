@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+
 	//"log"
 	"io"
 	"os"
@@ -50,11 +52,38 @@ func getLogStreams(logGroupName string) tea.Msg {
 	if err != nil {
 		return errMsg{err}
 	}
-	return logStreamMsg(logStreams)
+	return logStreamMsg{
+		groupName: logGroupName,
+		streams:   logStreams,
+	}
+}
+
+func getLogEvents(logGroupName, logStreamName string) tea.Msg {
+	client, err := createClient()
+	if err != nil {
+		return errMsg{err}
+	}
+	events, err := fetchLogEvents(client, logGroupName, logStreamName)
+	if err != nil {
+		return errMsg{err}
+	}
+	return logEventMsg{
+		groupName:  logGroupName,
+		streamName: logStreamName,
+		events:     events,
+	}
 }
 
 type logGroupMsg []types.LogGroup
-type logStreamMsg []types.LogStream
+type logStreamMsg struct {
+	groupName string
+	streams   []types.LogStream
+}
+type logEventMsg struct {
+	groupName  string
+	streamName string
+	events     []types.OutputLogEvent
+}
 
 type errMsg struct{ err error }
 
@@ -71,15 +100,13 @@ func (i item) Description() string { return i.desc }
 func (i item) FilterValue() string { return i.title }
 
 type model struct {
-	groupsList     list.Model
-	streamsList    list.Model
-	viewport       viewport.Model
-	logGroups      []types.LogGroup
-	logStreams     []types.LogStream
-	groupSelected  list.Item
-	streamSelected list.Item
-	mode           mode
-	log            io.Writer
+	groupsList  list.Model
+	streamsList list.Model
+	viewport    viewport.Model
+	logGroups   []types.LogGroup
+	logStreams  []types.LogStream
+	mode        mode
+	log         io.Writer
 }
 
 func (m model) Init() tea.Cmd {
@@ -87,7 +114,6 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	m.log.Write([]byte(fmt.Sprintf("%+v\n", msg)))
 	switch msg := msg.(type) {
 	case logGroupMsg:
 		items := []list.Item{}
@@ -101,20 +127,30 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.logGroups = msg
 	case logStreamMsg:
 		items := []list.Item{}
-		for _, stream := range msg {
+		for _, stream := range msg.streams {
 			m.log.Write([]byte(fmt.Sprintf("Log Stream: %s\n", *stream.LogStreamName)))
 			items = append(items, item{
 				title: *stream.LogStreamName,
 			})
 		}
 		m.streamsList.SetItems(items)
-		m.logStreams = msg
+		m.streamsList.Title = fmt.Sprintf("Log Group: %s", msg.groupName)
+		m.logStreams = msg.streams
+	case logEventMsg:
+		var buffer bytes.Buffer
+		for _, event := range msg.events {
+			buffer.WriteString(*event.Message)
+		}
+		result := buffer.String()
+		m.viewport.SetContent(result)
 	case tea.WindowSizeMsg:
 		h, v := docStyle.GetFrameSize()
 		m.groupsList.SetSize(msg.Width-h, msg.Height-v)
 		m.streamsList.SetSize(msg.Width-h, msg.Height-v)
 		//m.viewport.SetSize(msg.Width-h, msg.Height-v)
+		m.viewport.Width, m.viewport.Height = msg.Width-h, msg.Height-v
 	}
+	m.log.Write([]byte(fmt.Sprintf("%+v\n", msg)))
 
 	switch m.mode {
 	case Groups:
@@ -137,11 +173,11 @@ func (m model) updateGroups(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "enter":
 			if !m.groupsList.SettingFilter() {
-				m.groupSelected = m.groupsList.SelectedItem()
 				m.mode = Streams
 				return m, func() tea.Msg {
-					selectedLogGroup := m.logGroups[m.groupsList.Index()]
-					return getLogStreams(*selectedLogGroup.LogGroupName)
+					return getLogStreams(
+						m.groupsList.SelectedItem().(item).Title(),
+					)
 				}
 			}
 		}
@@ -161,9 +197,13 @@ func (m model) updateStreams(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "enter":
 			if !m.streamsList.SettingFilter() {
-				m.streamSelected = m.streamsList.SelectedItem()
 				m.mode = Page
-				return m, nil
+				return m, func() tea.Msg {
+					return getLogEvents(
+						m.groupsList.SelectedItem().(item).Title(),
+						m.streamsList.SelectedItem().(item).Title(),
+					)
+				}
 			}
 		case "esc":
 			m.mode = Groups
@@ -185,6 +225,7 @@ func (m model) updatePage(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "esc":
 			m.mode = Streams
+			m.viewport.SetContent("")
 			return m, nil
 		}
 	}
@@ -211,7 +252,6 @@ func initialModel() model {
 		viewport:    viewport.New(50, 50),
 	}
 	m.groupsList.Title = "Log Groups"
-	m.streamsList.Title = "Log Streams"
 	return m
 }
 
@@ -243,6 +283,20 @@ func fetchLogStreams(client *cloudwatchlogs.Client, logGroupName string) ([]type
 	return output.LogStreams, nil
 }
 
+func fetchLogEvents(client *cloudwatchlogs.Client, logGroupName, logStreamName string) ([]types.OutputLogEvent, error) {
+	output, err := client.GetLogEvents(context.TODO(), &cloudwatchlogs.GetLogEventsInput{
+		LogGroupName:  &logGroupName,
+		LogStreamName: &logStreamName,
+		StartFromHead: aws.Bool(true),
+		//Limit
+		//NextToken
+	})
+	if err != nil {
+		return nil, err
+	}
+	return output.Events, nil
+}
+
 func main() {
 	var log *os.File
 	if _, ok := os.LookupEnv("DEBUG"); ok {
@@ -254,7 +308,6 @@ func main() {
 	}
 	m := initialModel()
 	m.log = log
-	m.viewport.SetContent("TEST CONTENT")
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
