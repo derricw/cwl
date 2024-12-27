@@ -4,10 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-
-	//"log"
 	"io"
 	"os"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -131,10 +130,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.log.Write([]byte(fmt.Sprintf("Log Stream: %s\n", *stream.LogStreamName)))
 			items = append(items, item{
 				title: *stream.LogStreamName,
+				desc:  time.Unix(0, *stream.LastEventTimestamp*1000000).Format("2006-01-02 15:04:05"),
 			})
 		}
 		m.streamsList.SetItems(items)
-		m.streamsList.Title = fmt.Sprintf("Log Group: %s", msg.groupName)
+		m.streamsList.Title = fmt.Sprintf("Log Streams: %s", msg.groupName)
 		m.logStreams = msg.streams
 	case logEventMsg:
 		var buffer bytes.Buffer
@@ -147,7 +147,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		h, v := docStyle.GetFrameSize()
 		m.groupsList.SetSize(msg.Width-h, msg.Height-v)
 		m.streamsList.SetSize(msg.Width-h, msg.Height-v)
-		//m.viewport.SetSize(msg.Width-h, msg.Height-v)
 		m.viewport.Width, m.viewport.Height = msg.Width-h, msg.Height-v
 	}
 	m.log.Write([]byte(fmt.Sprintf("%+v\n", msg)))
@@ -169,8 +168,10 @@ func (m model) updateGroups(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		k := msg.String()
 		switch k {
-		case "ctrl+c", "esc":
+		case "ctrl+c":
 			return m, tea.Quit
+		case "esc":
+			return m, nil // don't exit on escape
 		case "enter":
 			if !m.groupsList.SettingFilter() {
 				m.mode = Streams
@@ -246,9 +247,13 @@ func (m model) View() string {
 
 func initialModel() model {
 	groups, streams := []list.Item{}, []list.Item{}
+	// Delegates definte rendering for list items
+	groupsDel := list.NewDefaultDelegate()
+	streamsDel := list.NewDefaultDelegate()
+	groupsDel.ShowDescription, streamsDel.ShowDescription = false, true
 	m := model{
-		groupsList:  list.New(groups, list.NewDefaultDelegate(), 0, 0),
-		streamsList: list.New(streams, list.NewDefaultDelegate(), 0, 0),
+		groupsList:  list.New(groups, groupsDel, 0, 0),
+		streamsList: list.New(streams, streamsDel, 0, 0),
 		viewport:    viewport.New(50, 50),
 	}
 	m.groupsList.Title = "Log Groups"
