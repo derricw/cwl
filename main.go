@@ -281,6 +281,7 @@ func fetchLogStreams(client *cloudwatchlogs.Client, logGroupName string) ([]type
 		LogGroupName: &logGroupName,
 		Limit:        aws.Int32(50),
 		OrderBy:      types.OrderByLastEventTime,
+		Descending:   aws.Bool(true),
 	})
 	if err != nil {
 		return nil, err
