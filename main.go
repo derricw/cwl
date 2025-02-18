@@ -288,30 +288,60 @@ func fetchLogGroups(client *cloudwatchlogs.Client) ([]types.LogGroup, error) {
 }
 
 func fetchLogStreams(client *cloudwatchlogs.Client, logGroupName string) ([]types.LogStream, error) {
-	output, err := client.DescribeLogStreams(context.TODO(), &cloudwatchlogs.DescribeLogStreamsInput{
-		LogGroupName: &logGroupName,
-		Limit:        aws.Int32(50),
-		OrderBy:      types.OrderByLastEventTime,
-		Descending:   aws.Bool(true),
-	})
-	if err != nil {
-		return nil, err
+	streams := make([]types.LogStream, 0)
+	var nextToken *string
+
+	maxLogSteams := 300
+
+	for {
+		output, err := client.DescribeLogStreams(context.TODO(), &cloudwatchlogs.DescribeLogStreamsInput{
+			LogGroupName: &logGroupName,
+			Limit:        aws.Int32(50),
+			OrderBy:      types.OrderByLastEventTime,
+			Descending:   aws.Bool(true),
+			NextToken:    nextToken,
+		})
+		if err != nil {
+			return nil, err
+		}
+		streams = append(streams, output.LogStreams...)
+		if len(streams) >= maxLogSteams {
+			break
+		}
+		if output.NextToken != nil {
+			nextToken = output.NextToken
+		} else {
+			break
+		}
 	}
-	return output.LogStreams, nil
+	return streams, nil
 }
 
 func fetchLogEvents(client *cloudwatchlogs.Client, logGroupName, logStreamName string) ([]types.OutputLogEvent, error) {
-	output, err := client.GetLogEvents(context.TODO(), &cloudwatchlogs.GetLogEventsInput{
-		LogGroupName:  &logGroupName,
-		LogStreamName: &logStreamName,
-		StartFromHead: aws.Bool(true),
-		//Limit
-		//NextToken
-	})
-	if err != nil {
-		return nil, err
+	events := make([]types.OutputLogEvent, 0)
+	var nextToken *string
+
+	for {
+		output, err := client.GetLogEvents(context.TODO(), &cloudwatchlogs.GetLogEventsInput{
+			LogGroupName:  &logGroupName,
+			LogStreamName: &logStreamName,
+			StartFromHead: aws.Bool(true),
+			//Limit
+			NextToken: nextToken,
+		})
+		if err != nil {
+			return nil, err
+		}
+		events = append(events, output.Events...)
+		if output.NextForwardToken == nil {
+			break
+		} else if output.NextForwardToken != output.NextForwardToken {
+			nextToken = output.NextForwardToken
+		} else {
+			break
+		}
 	}
-	return output.Events, nil
+	return events, nil
 }
 
 func main() {
