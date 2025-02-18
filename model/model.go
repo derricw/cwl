@@ -1,4 +1,4 @@
-package main
+package model
 
 import (
 	"bytes"
@@ -12,6 +12,8 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/derricw/cwl/fetch"
 )
 
 type mode int
@@ -26,12 +28,12 @@ var docStyle = lipgloss.NewStyle().Margin(1, 2)
 
 // creates message for refreshing log groups
 func getLogGroups() tea.Msg {
-	client, err := createClient()
+	client, err := fetch.CreateClient()
 	if err != nil {
 		return errMsg{err}
 	}
 
-	logGroups, err := fetchLogGroups(client)
+	logGroups, err := fetch.FetchLogGroups(client)
 	if err != nil {
 		return errMsg{err}
 	}
@@ -40,11 +42,11 @@ func getLogGroups() tea.Msg {
 
 // creates message for refreshing log streams
 func getLogStreams(logGroupName string) tea.Msg {
-	client, err := createClient()
+	client, err := fetch.CreateClient()
 	if err != nil {
 		return errMsg{err}
 	}
-	logStreams, err := fetchLogStreams(client, logGroupName)
+	logStreams, err := fetch.FetchLogStreams(client, logGroupName)
 	if err != nil {
 		return errMsg{err}
 	}
@@ -56,11 +58,11 @@ func getLogStreams(logGroupName string) tea.Msg {
 
 // creates message for refreshing log events
 func getLogEvents(logGroupName, logStreamName string) tea.Msg {
-	client, err := createClient()
+	client, err := fetch.CreateClient()
 	if err != nil {
 		return errMsg{err}
 	}
-	events, err := fetchLogEvents(client, logGroupName, logStreamName)
+	events, err := fetch.FetchLogEvents(client, logGroupName, logStreamName)
 	if err != nil {
 		return errMsg{err}
 	}
@@ -97,13 +99,14 @@ func (i item) Description() string { return i.desc }
 func (i item) FilterValue() string { return i.title }
 
 type model struct {
+	Log io.Writer
+
 	groupsList  list.Model
 	streamsList list.Model
 	viewport    viewport.Model
 	logGroups   []types.LogGroup
 	logStreams  []types.LogStream
 	mode        mode
-	log         io.Writer
 }
 
 func (m model) Init() tea.Cmd {
@@ -125,7 +128,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case logStreamMsg:
 		items := []list.Item{}
 		for _, stream := range msg.streams {
-			m.log.Write([]byte(fmt.Sprintf("Log Stream: %s\n", *stream.LogStreamName)))
+			m.Log.Write([]byte(fmt.Sprintf("Log Stream: %s\n", *stream.LogStreamName)))
 			items = append(items, item{
 				title: *stream.LogStreamName,
 				desc:  time.Unix(0, *stream.LastEventTimestamp*1000000).Format("2006-01-02 15:04:05"),
@@ -147,7 +150,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.streamsList.SetSize(msg.Width-h, msg.Height-v)
 		m.viewport.Width, m.viewport.Height = msg.Width-h, msg.Height-v
 	}
-	m.log.Write([]byte(fmt.Sprintf("%+v\n", msg)))
+	m.Log.Write([]byte(fmt.Sprintf("%+v\n", msg)))
 
 	switch m.mode {
 	case Groups:
@@ -247,7 +250,7 @@ func (m model) View() string {
 }
 
 // initialize model data
-func initialModel() model {
+func InitialModel() model {
 	groups, streams := []list.Item{}, []list.Item{}
 	// Delegates definte rendering for list items
 	groupsDel := list.NewDefaultDelegate()

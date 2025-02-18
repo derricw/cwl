@@ -1,4 +1,4 @@
-package main
+package fetch
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 )
 
-func createClient() (*cloudwatchlogs.Client, error) {
+func CreateClient() (*cloudwatchlogs.Client, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return nil, err
@@ -17,7 +17,7 @@ func createClient() (*cloudwatchlogs.Client, error) {
 	return cloudwatchlogs.NewFromConfig(cfg), nil
 }
 
-func fetchLogGroups(client *cloudwatchlogs.Client) ([]types.LogGroup, error) {
+func FetchLogGroups(client *cloudwatchlogs.Client) ([]types.LogGroup, error) {
 	groups := make([]types.LogGroup, 0)
 	var nextToken *string
 
@@ -36,7 +36,7 @@ func fetchLogGroups(client *cloudwatchlogs.Client) ([]types.LogGroup, error) {
 	return groups, nil
 }
 
-func fetchLogStreams(client *cloudwatchlogs.Client, logGroupName string) ([]types.LogStream, error) {
+func FetchLogStreams(client *cloudwatchlogs.Client, logGroupName string) ([]types.LogStream, error) {
 	streams := make([]types.LogStream, 0)
 	var nextToken *string
 
@@ -66,7 +66,7 @@ func fetchLogStreams(client *cloudwatchlogs.Client, logGroupName string) ([]type
 	return streams, nil
 }
 
-func fetchLogEvents(client *cloudwatchlogs.Client, logGroupName, logStreamName string) ([]types.OutputLogEvent, error) {
+func FetchLogEvents(client *cloudwatchlogs.Client, logGroupName, logStreamName string) ([]types.OutputLogEvent, error) {
 	events := make([]types.OutputLogEvent, 0)
 	var nextToken *string
 
