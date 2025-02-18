@@ -269,11 +269,22 @@ func createClient() (*cloudwatchlogs.Client, error) {
 }
 
 func fetchLogGroups(client *cloudwatchlogs.Client) ([]types.LogGroup, error) {
-	output, err := client.DescribeLogGroups(context.TODO(), &cloudwatchlogs.DescribeLogGroupsInput{})
-	if err != nil {
-		return nil, err
+	groups := make([]types.LogGroup, 0)
+	var nextToken *string
+
+	for {
+		output, err := client.DescribeLogGroups(context.TODO(), &cloudwatchlogs.DescribeLogGroupsInput{NextToken: nextToken})
+		if err != nil {
+			return nil, err
+		}
+		groups = append(groups, output.LogGroups...)
+		if output.NextToken != nil {
+			nextToken = output.NextToken
+		} else {
+			break
+		}
 	}
-	return output.LogGroups, nil
+	return groups, nil
 }
 
 func fetchLogStreams(client *cloudwatchlogs.Client, logGroupName string) ([]types.LogStream, error) {
