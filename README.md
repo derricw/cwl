@@ -1,6 +1,10 @@
 # cwl
 
-Browse Cloudwatch logs in the terminal.
+Simple CLI and TUI for browsing Cloudwatch logs in the terminal.
+
+Aims to be as simple as possible but no simpler.
+
+< demo video soon >
 
 ### Install
 
@@ -20,9 +24,9 @@ List streams for a group:
 cwl streams /my/log/group
 ```
 
-Write events to stdout:
+Write events from a stream to stdout:
 ```bash
-cwl events /my/log/group::my/log/stream
+cwl events arn:aws:logs:us-west-2:835769962433:log-group:/aws/batch/job:log-stream:my_batch_job_12345
 ```
 
 ### Using in a pipeline
