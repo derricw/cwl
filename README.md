@@ -6,13 +6,15 @@ Aims to be as simple as possible but no simpler.
 
 < demo video soon >
 
-### Install
+## Install
 
 ```bash
 go install github.com/derricw/cwl@latest
 ```
 
-### Use
+## Use
+
+### Basic
 
 List log groups:
 ```bash
@@ -28,6 +30,10 @@ Write events from a stream to stdout:
 ```bash
 cwl events arn:aws:logs:us-west-2:12345657890:log-group:/aws/batch/job:log-stream:my_batch_job_12345
 ```
+Use a specific AWS profile (otherwise uses default credential chain):
+```bash
+cwl -p testProfile groups
+```
 
 ### Using in a pipeline
 
@@ -39,4 +45,11 @@ cwl streams /aws/batch/job | fzf | cwl events
 Start searching many log streams for a keyword and dump to file:
 ```bash
 cwl streams /aws/batch/job | cwl events | grep "ERROR" > errors.log
+```
+
+### TUI
+
+Use with no arguments to start a TUI:
+```bash
+cwl
 ```

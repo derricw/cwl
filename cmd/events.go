@@ -37,6 +37,7 @@ func writeEvent(event types.OutputLogEvent) {
 	}
 }
 
+// extract log group and log stream name from a log stream ARN
 func streamArnToName(streamArn string) (string, string) {
 	streamArnTokens := strings.Split(streamArn, ":log-group:")
 	streamNameTokens := strings.Split(streamArnTokens[1], ":log-stream:")
