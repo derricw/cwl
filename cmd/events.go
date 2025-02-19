@@ -14,17 +14,16 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
-	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 )
 
 func init() {
-	rootCmd.AddCommand(streamsCmd)
+	rootCmd.AddCommand(eventsCmd)
 }
 
-var streamsCmd = &cobra.Command{
-	Use:   "streams [group]",
-	Short: "list streams for a log group",
-	Long:  `Lists all available streams for a log group.`,
+var eventsCmd = &cobra.Command{
+	Use:   "events [stream]",
+	Short: "list events for a log stream",
+	Long:  `Lists events for a log stream.`,
 	Args:  cobra.MatchAll(cobra.MaximumNArgs(1)),
 	Run: func(cmd *cobra.Command, args []string) {
 
@@ -47,23 +46,26 @@ var streamsCmd = &cobra.Command{
 
 		scanner := bufio.NewScanner(readFrom)
 		for scanner.Scan() {
-			groupName := scanner.Text()
+			streamText := scanner.Text()
+			streamTokens := strings.Split(streamText, "::")
+			groupName, streamName := streamTokens[0], streamTokens[1]
 			for {
-				output, err := client.DescribeLogStreams(context.TODO(), &cloudwatchlogs.DescribeLogStreamsInput{
-					LogGroupName: &groupName,
-					Limit:        aws.Int32(50),
-					OrderBy:      types.OrderByLastEventTime,
-					Descending:   aws.Bool(true),
-					NextToken:    nextToken,
+				output, err := client.GetLogEvents(context.TODO(), &cloudwatchlogs.GetLogEventsInput{
+					LogGroupName:  &groupName,
+					LogStreamName: &streamName,
+					StartFromHead: aws.Bool(true),
+					NextToken:     nextToken,
 				})
 				if err != nil {
 					log.Fatal(err)
 				}
-				for _, stream := range output.LogStreams {
-					fmt.Printf("%s::%s\n", groupName, *stream.LogStreamName)
+				for _, event := range output.Events {
+					fmt.Printf("%s\n", *event.Message)
 				}
-				if output.NextToken != nil {
-					nextToken = output.NextToken
+				if output.NextForwardToken == nil {
+					break
+				} else if output.NextForwardToken != output.NextForwardToken {
+					nextToken = output.NextForwardToken
 				} else {
 					break
 				}

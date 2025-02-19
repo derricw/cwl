@@ -31,7 +31,6 @@ var rootCmd = &cobra.Command{
 			fmt.Printf("Alas, there's been an error: %v", err)
 			os.Exit(1)
 		}
-
 	},
 }
 
