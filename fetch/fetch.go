@@ -82,7 +82,7 @@ func FetchLogEvents(client *cloudwatchlogs.Client, logGroupName, logStreamName s
 		events = append(events, output.Events...)
 		if output.NextForwardToken == nil {
 			break
-		} else if output.NextForwardToken != output.NextForwardToken {
+		} else if nextToken == nil || *output.NextForwardToken == *nextToken {
 			nextToken = output.NextForwardToken
 		} else {
 			break

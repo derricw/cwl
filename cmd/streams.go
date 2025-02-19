@@ -3,6 +3,7 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -18,12 +19,26 @@ import (
 )
 
 func init() {
+	streamsCmd.PersistentFlags().BoolVarP(&jsonOutput, "json", "", false, "Output full json")
 	rootCmd.AddCommand(streamsCmd)
+}
+
+func writeStream(stream types.LogStream) {
+	if jsonOutput {
+		jsonData, err := json.Marshal(stream)
+		if err != nil {
+			fmt.Println("Error marshaling to JSON:", err)
+			return
+		}
+		fmt.Println(string(jsonData))
+	} else {
+		fmt.Printf("%s\n", *stream.Arn)
+	}
 }
 
 var streamsCmd = &cobra.Command{
 	Use:   "streams [group]",
-	Short: "list streams for a log group",
+	Short: "list stream arns for a log group",
 	Long:  `Lists all available streams for a log group.`,
 	Args:  cobra.MatchAll(cobra.MaximumNArgs(1)),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -60,7 +75,7 @@ var streamsCmd = &cobra.Command{
 					log.Fatal(err)
 				}
 				for _, stream := range output.LogStreams {
-					fmt.Printf("%s::%s\n", groupName, *stream.LogStreamName)
+					writeStream(stream)
 				}
 				if output.NextToken != nil {
 					nextToken = output.NextToken

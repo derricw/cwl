@@ -10,6 +10,8 @@ import (
 	"github.com/derricw/cwl/model"
 )
 
+var jsonOutput bool
+
 var rootCmd = &cobra.Command{
 	Use:   "cwl",
 	Short: "Launch cwl tui",

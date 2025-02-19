@@ -27,7 +27,12 @@ cwl events /my/log/group::my/log/stream
 
 ### Using in a pipeline
 
-Each command can read input from stdin:
+Each command can read input from stdin, so you can compose with other tools like `fzf` or `grep`:
 ```bash
-cwl groups | fzf | cwl streams
+cwl streams /aws/batch/job | fzf | cwl events
+```
+
+Start searching many log streams for a keyword and dump to file:
+```bash
+cwl streams /aws/batch/job | cwl events | grep "ERROR" > errors.log
 ```
