@@ -26,7 +26,7 @@ cwl streams /my/log/group
 
 Write events from a stream to stdout:
 ```bash
-cwl events arn:aws:logs:us-west-2:835769962433:log-group:/aws/batch/job:log-stream:my_batch_job_12345
+cwl events arn:aws:logs:us-west-2:12345657890:log-group:/aws/batch/job:log-stream:my_batch_job_12345
 ```
 
 ### Using in a pipeline
