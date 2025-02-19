@@ -36,11 +36,9 @@ func FetchLogGroups(client *cloudwatchlogs.Client) ([]types.LogGroup, error) {
 	return groups, nil
 }
 
-func FetchLogStreams(client *cloudwatchlogs.Client, logGroupName string) ([]types.LogStream, error) {
+func FetchLogStreams(client *cloudwatchlogs.Client, logGroupName string, maxResults int) ([]types.LogStream, error) {
 	streams := make([]types.LogStream, 0)
 	var nextToken *string
-
-	maxLogSteams := 300
 
 	for {
 		output, err := client.DescribeLogStreams(context.TODO(), &cloudwatchlogs.DescribeLogStreamsInput{
@@ -54,7 +52,7 @@ func FetchLogStreams(client *cloudwatchlogs.Client, logGroupName string) ([]type
 			return nil, err
 		}
 		streams = append(streams, output.LogStreams...)
-		if len(streams) >= maxLogSteams {
+		if len(streams) >= maxResults {
 			break
 		}
 		if output.NextToken != nil {

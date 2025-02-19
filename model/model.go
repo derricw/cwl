@@ -46,7 +46,7 @@ func getLogStreams(logGroupName string) tea.Msg {
 	if err != nil {
 		return errMsg{err}
 	}
-	logStreams, err := fetch.FetchLogStreams(client, logGroupName)
+	logStreams, err := fetch.FetchLogStreams(client, logGroupName, 10000) // TODO: max results
 	if err != nil {
 		return errMsg{err}
 	}
