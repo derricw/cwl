@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/derricw/cwl/fetch"
 	"github.com/spf13/cobra"
@@ -71,7 +72,9 @@ an argument or read from stdin.`,
 			streamArn := scanner.Text()
 			groupName, streamName := streamArnToName(streamArn)
 			for {
-				output, err := client.GetLogEvents(context.TODO(), &cloudwatchlogs.GetLogEventsInput{
+
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				output, err := client.GetLogEvents(ctx, &cloudwatchlogs.GetLogEventsInput{
 					LogGroupName:  &groupName,
 					LogStreamName: &streamName,
 					StartFromHead: aws.Bool(true),
@@ -81,6 +84,7 @@ an argument or read from stdin.`,
 				if err != nil {
 					log.Fatal(err)
 				}
+				cancel()
 				for _, event := range output.Events {
 					writeEvent(event)
 				}

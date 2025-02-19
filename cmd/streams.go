@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/derricw/cwl/fetch"
 	"github.com/spf13/cobra"
@@ -64,7 +65,8 @@ var streamsCmd = &cobra.Command{
 		for scanner.Scan() {
 			groupName := scanner.Text()
 			for {
-				output, err := client.DescribeLogStreams(context.TODO(), &cloudwatchlogs.DescribeLogStreamsInput{
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				output, err := client.DescribeLogStreams(ctx, &cloudwatchlogs.DescribeLogStreamsInput{
 					LogGroupName: &groupName,
 					Limit:        aws.Int32(50),
 					OrderBy:      types.OrderByLastEventTime,
@@ -74,6 +76,7 @@ var streamsCmd = &cobra.Command{
 				if err != nil {
 					log.Fatal(err)
 				}
+				cancel()
 				for _, stream := range output.LogStreams {
 					writeStream(stream)
 				}

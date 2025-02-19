@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/derricw/cwl/fetch"
 	"github.com/spf13/cobra"
@@ -46,10 +47,12 @@ var groupsCmd = &cobra.Command{
 
 		for {
 
-			output, err := client.DescribeLogGroups(context.TODO(), &cloudwatchlogs.DescribeLogGroupsInput{NextToken: nextToken})
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			output, err := client.DescribeLogGroups(ctx, &cloudwatchlogs.DescribeLogGroupsInput{NextToken: nextToken})
 			if err != nil {
 				log.Fatal(err)
 			}
+			cancel()
 			for _, group := range output.LogGroups {
 				writeGroup(group)
 			}
