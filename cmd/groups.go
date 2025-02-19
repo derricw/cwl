@@ -37,7 +37,7 @@ var groupsCmd = &cobra.Command{
 	Long:  `Lists all available log groups`,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		client, err := fetch.CreateClient()
+		client, err := fetch.CreateClient(awsProfile)
 		if err != nil {
 			log.Fatal(err)
 		}

@@ -50,7 +50,7 @@ an argument or read from stdin.`,
 	Args: cobra.MatchAll(cobra.MaximumNArgs(1)),
 	Run: func(cmd *cobra.Command, args []string) {
 
-		client, err := fetch.CreateClient()
+		client, err := fetch.CreateClient(awsProfile)
 		if err != nil {
 			log.Fatal(err)
 		}

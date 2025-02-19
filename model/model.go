@@ -25,10 +25,11 @@ const (
 )
 
 var docStyle = lipgloss.NewStyle().Margin(1, 2)
+var AwsProfile string
 
 // creates message for refreshing log groups
 func getLogGroups() tea.Msg {
-	client, err := fetch.CreateClient()
+	client, err := fetch.CreateClient(AwsProfile)
 	if err != nil {
 		return errMsg{err}
 	}
@@ -42,7 +43,7 @@ func getLogGroups() tea.Msg {
 
 // creates message for refreshing log streams
 func getLogStreams(logGroupName string) tea.Msg {
-	client, err := fetch.CreateClient()
+	client, err := fetch.CreateClient(AwsProfile)
 	if err != nil {
 		return errMsg{err}
 	}
@@ -58,7 +59,7 @@ func getLogStreams(logGroupName string) tea.Msg {
 
 // creates message for refreshing log events
 func getLogEvents(logGroupName, logStreamName string) tea.Msg {
-	client, err := fetch.CreateClient()
+	client, err := fetch.CreateClient(AwsProfile)
 	if err != nil {
 		return errMsg{err}
 	}

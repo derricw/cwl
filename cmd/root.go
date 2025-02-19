@@ -11,9 +11,14 @@ import (
 )
 
 var jsonOutput bool
+var awsProfile string
+
+func init() {
+	rootCmd.PersistentFlags().StringVarP(&awsProfile, "profile", "p", "", "AWS Profile to use")
+}
 
 var rootCmd = &cobra.Command{
-	Use:   "cwl",
+	Use:   "cwl [subcommand]",
 	Short: "Launch cwl tui",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -26,6 +31,7 @@ var rootCmd = &cobra.Command{
 				os.Exit(1)
 			}
 		}
+		model.AwsProfile = awsProfile
 		m := model.InitialModel()
 		m.Log = log
 		p := tea.NewProgram(m, tea.WithAltScreen())

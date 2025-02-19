@@ -9,8 +9,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 )
 
-func CreateClient() (*cloudwatchlogs.Client, error) {
-	cfg, err := config.LoadDefaultConfig(context.TODO())
+func CreateClient(profileName string) (*cloudwatchlogs.Client, error) {
+	cfg, err := config.LoadDefaultConfig(context.TODO(),
+		config.WithSharedConfigProfile(profileName),
+	)
 	if err != nil {
 		return nil, err
 	}

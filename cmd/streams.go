@@ -38,12 +38,12 @@ func writeStream(stream types.LogStream) {
 
 var streamsCmd = &cobra.Command{
 	Use:   "streams [group]",
-	Short: "list stream arns for a log group",
+	Short: "List stream arns for a log group",
 	Long:  `Lists all available streams for a log group.`,
 	Args:  cobra.MatchAll(cobra.MaximumNArgs(1)),
 	Run: func(cmd *cobra.Command, args []string) {
 
-		client, err := fetch.CreateClient()
+		client, err := fetch.CreateClient(awsProfile)
 		if err != nil {
 			log.Fatal(err)
 		}
