@@ -76,6 +76,7 @@ an argument or read from stdin.`,
 					LogStreamName: &streamName,
 					StartFromHead: aws.Bool(true),
 					NextToken:     nextToken,
+					Limit:         aws.Int32(10000), // 10,000 is max allowed by AWS
 				})
 				if err != nil {
 					log.Fatal(err)
