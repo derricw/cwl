@@ -4,7 +4,7 @@ Simple CLI and TUI for browsing Cloudwatch logs in the terminal.
 
 Aims to be as simple as possible but no simpler.
 
-< demo video soon >
+![Made with VHS](https://vhs.charm.sh/vhs-88s4i0E7gteUVOXfY4oi3.gif)
 
 ## Install
 
