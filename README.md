@@ -35,6 +35,16 @@ Use a specific AWS profile (otherwise uses default credential chain):
 cwl -p testProfile groups
 ```
 
+Query a log group using cloudwatch query language:
+```bash
+cwl query /my/log/group -q "fields @timestamp, @message | sort @timestamp desc | limit 5"
+```
+
+Omit the arg to query all log groups:
+```bash
+cwl query -q "fields @timestamp, @message | sort @timestamp desc | limit 5"
+```
+
 ### Using in a pipeline
 
 Each command can read input from stdin, so you can compose with other tools like `fzf` or `grep`:
