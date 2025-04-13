@@ -19,8 +19,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 )
 
+var (
+	follow bool
+)
+
 func init() {
 	eventsCmd.PersistentFlags().BoolVarP(&jsonOutput, "json", "", false, "Output full json")
+	eventsCmd.PersistentFlags().BoolVarP(&follow, "follow", "f", false, "Follow log stream")
 	rootCmd.AddCommand(eventsCmd)
 }
 
@@ -78,7 +83,7 @@ an argument or read from stdin.`,
 				output, err := client.GetLogEvents(ctx, &cloudwatchlogs.GetLogEventsInput{
 					LogGroupName:  &groupName,
 					LogStreamName: &streamName,
-					StartFromHead: aws.Bool(true),
+					StartFromHead: aws.Bool(!follow), // in follow mode, we want the latest events
 					NextToken:     nextToken,
 					Limit:         aws.Int32(10000), // 10,000 is max allowed by AWS
 				})
@@ -89,13 +94,16 @@ an argument or read from stdin.`,
 				for _, event := range output.Events {
 					writeEvent(event)
 				}
-				if output.NextForwardToken == nil {
-					break
-				} else if nextToken == nil || *output.NextForwardToken == *nextToken {
-					nextToken = output.NextForwardToken
-				} else {
-					break
+
+				if nextToken != nil && *nextToken == *output.NextForwardToken {
+					if follow {
+						time.Sleep(2 * time.Second)
+					} else {
+						break
+					}
 				}
+
+				nextToken = output.NextForwardToken
 			}
 		}
 	},
