@@ -8,9 +8,11 @@ Aims to be as simple as possible but no simpler.
 
 ## Install
 
+Using Go:
 ```bash
 go install github.com/derricw/cwl@latest
 ```
+Or download the binary from the [releases](https://github.com/derricw/cwl/releases) page and place it in your PATH.
 
 ## Use
 
@@ -30,6 +32,12 @@ Write events from a stream to stdout:
 ```bash
 cwl events arn:aws:logs:us-west-2:12345657890:log-group:/aws/batch/job:log-stream:my_batch_job_12345
 ```
+
+Tail a log stream:
+```bash
+cwl events -f arn:aws:logs:us-west-2:12345657890:log-group:/aws/batch/job:log-stream:my_batch_job_12345
+```
+
 Use a specific AWS profile (otherwise uses default credential chain):
 ```bash
 cwl -p testProfile groups
@@ -40,7 +48,7 @@ Query a log group using cloudwatch query language:
 cwl query /my/log/group -q "fields @timestamp, @message | sort @timestamp desc | limit 5"
 ```
 
-Omit the arg to query all log groups:
+Omit the group to query all log groups:
 ```bash
 cwl query -q "fields @timestamp, @message | sort @timestamp desc | limit 5"
 ```
