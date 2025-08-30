@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/derricw/cwl/fetch"
 	"github.com/spf13/cobra"
 
@@ -24,12 +25,39 @@ var (
 	follow             bool
 	minPollingInterval = 1 * time.Second  // Minimum interval for polling events
 	maxPollingInterval = 16 * time.Second // Maximum interval for polling events
+	noColor            bool
 )
 
 func init() {
 	eventsCmd.PersistentFlags().BoolVarP(&jsonOutput, "json", "", false, "Output full json")
 	eventsCmd.PersistentFlags().BoolVarP(&follow, "follow", "f", false, "Follow log stream")
+	eventsCmd.PersistentFlags().BoolVarP(&noColor, "no-color", "c", false, "disable colored output")
 	rootCmd.AddCommand(eventsCmd)
+}
+
+type Event struct {
+	cwEvent types.OutputLogEvent
+	color   *lipgloss.Color
+}
+
+func (e *Event) Render() {
+	var buffer string
+	if jsonOutput {
+		jsonData, err := json.Marshal(e.cwEvent)
+		if err != nil {
+			fmt.Println("Error marshalling to JSON:", err)
+		}
+		buffer = string(jsonData)
+	} else {
+		buffer = *e.cwEvent.Message
+	}
+
+	if noColor || e.color == nil {
+		fmt.Println(buffer)
+	} else {
+		style := lipgloss.NewStyle().Foreground(e.color)
+		fmt.Println(style.Render(buffer))
+	}
 }
 
 // extract log group and log stream name from a log stream ARN
@@ -40,23 +68,14 @@ func streamArnToName(streamArn string) (string, string) {
 }
 
 // read events from a channel and print them to stdout
-func writeEvents(events <-chan types.OutputLogEvent) {
+func writeEvents(events <-chan Event) {
 	for event := range events {
-		if jsonOutput {
-			jsonData, err := json.Marshal(event)
-			if err != nil {
-				fmt.Println("Error marshaling to JSON:", err)
-				continue
-			}
-			fmt.Println(string(jsonData))
-		} else {
-			fmt.Printf("%s\n", *event.Message)
-		}
+		event.Render()
 	}
 }
 
 // requestEvents fetches events from a log stream and sends them to the output channel.
-func requestEvents(client *cloudwatchlogs.Client, groupName, streamName string, outputChan chan types.OutputLogEvent) error {
+func requestEvents(client *cloudwatchlogs.Client, groupName, streamName string, outputChan chan Event, color *lipgloss.Color) error {
 	var nextToken *string
 	var interval time.Duration
 	for {
@@ -75,7 +94,7 @@ func requestEvents(client *cloudwatchlogs.Client, groupName, streamName string, 
 		}
 		cancel()
 		for _, event := range output.Events {
-			outputChan <- event
+			outputChan <- Event{event, color}
 		}
 
 		if len(output.Events) > 0 {
@@ -119,7 +138,7 @@ an argument or read from stdin.`,
 			readFrom = strings.NewReader(args[0])
 		}
 
-		eventChannel := make(chan types.OutputLogEvent, 10000)
+		eventChannel := make(chan Event, 10000)
 		var processWg sync.WaitGroup
 		processWg.Add(1)
 		go func() {
@@ -129,14 +148,21 @@ an argument or read from stdin.`,
 
 		var wg sync.WaitGroup
 		scanner := bufio.NewScanner(readFrom)
+		streamIdx := 0
+		var color *lipgloss.Color
+
 		for scanner.Scan() {
 			streamArn := scanner.Text()
 			groupName, streamName := streamArnToName(streamArn)
+			if streamIdx != 0 {
+				color = &colors[streamIdx%len(colors)]
+			}
 			wg.Add(1)
-			go func(g, s string, ech chan types.OutputLogEvent) {
+			go func(g, s string, ech chan Event, c *lipgloss.Color) {
 				defer wg.Done()
-				requestEvents(client, g, s, ech)
-			}(groupName, streamName, eventChannel)
+				requestEvents(client, g, s, ech, c)
+			}(groupName, streamName, eventChannel, color)
+			streamIdx++
 		}
 
 		// wait on everything to finish
