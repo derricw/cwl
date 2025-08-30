@@ -112,10 +112,10 @@ an argument or read from stdin.`,
 		var readFrom io.Reader
 
 		if len(args) == 0 {
-			// read groups from stdin
+			// read streams from stdin
 			readFrom = os.Stdin
 		} else {
-			// a group was passed on command line
+			// a stream was passed on command line
 			readFrom = strings.NewReader(args[0])
 		}
 
