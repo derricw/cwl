@@ -59,7 +59,7 @@ var putCmd = &cobra.Command{
 			readFrom = os.Stdin
 		} else if len(args) == 2 {
 			streamArn = args[0]
-			readFrom = strings.NewReader(args[0])
+			readFrom = strings.NewReader(args[1])
 		} else {
 			log.Fatal("Expected no more than 2 args")
 		}

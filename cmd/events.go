@@ -35,11 +35,15 @@ func init() {
 	rootCmd.AddCommand(eventsCmd)
 }
 
+// Event is an event that we can write to stdout
+// It contains a Cloudwatch event and a color
 type Event struct {
 	cwEvent types.OutputLogEvent
 	color   *lipgloss.Color
 }
 
+// Render writes the event to stdout, taking into
+// consideration the color and json output flag
 func (e *Event) Render() {
 	var buffer string
 	if jsonOutput {
@@ -67,7 +71,7 @@ func streamArnToName(streamArn string) (string, string) {
 	return streamNameTokens[0], streamNameTokens[1]
 }
 
-// read events from a channel and print them to stdout
+// read events from a channel and render them as they come in
 func writeEvents(events <-chan Event) {
 	for event := range events {
 		event.Render()
@@ -151,6 +155,7 @@ an argument or read from stdin.`,
 		streamIdx := 0
 		var color *lipgloss.Color
 
+		// iterate over streams and request events for each
 		for scanner.Scan() {
 			streamArn := scanner.Text()
 			groupName, streamName := streamArnToName(streamArn)

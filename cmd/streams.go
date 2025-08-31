@@ -21,6 +21,7 @@ import (
 
 func init() {
 	streamsCmd.PersistentFlags().BoolVarP(&jsonOutput, "json", "", false, "Output full json")
+	streamsCmd.PersistentFlags().BoolVarP(&follow, "follow", "f", false, "Keep checking for new streams with events")
 	rootCmd.AddCommand(streamsCmd)
 }
 
@@ -59,11 +60,13 @@ var streamsCmd = &cobra.Command{
 			readFrom = strings.NewReader(args[0])
 		}
 
-		var nextToken *string
+		seen := map[string]struct{}{}
 
 		scanner := bufio.NewScanner(readFrom)
 		for scanner.Scan() {
 			groupName := scanner.Text()
+			var nextToken *string
+			start := time.Now().UnixNano() / 1000000
 			for {
 				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 				output, err := client.DescribeLogStreams(ctx, &cloudwatchlogs.DescribeLogStreamsInput{
@@ -78,12 +81,21 @@ var streamsCmd = &cobra.Command{
 				}
 				cancel()
 				for _, stream := range output.LogStreams {
-					writeStream(stream)
+					if !follow || *stream.LastIngestionTime > start {
+						if _, found := seen[*stream.LogStreamName]; !found {
+							writeStream(stream)
+							seen[*stream.LogStreamName] = struct{}{}
+						}
+					}
 				}
 				if output.NextToken != nil {
 					nextToken = output.NextToken
 				} else {
-					break
+					if follow {
+						time.Sleep(time.Second * 10)
+					} else {
+						break
+					}
 				}
 			}
 		}
