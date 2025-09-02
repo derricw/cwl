@@ -27,7 +27,8 @@ func ensureLogStreamExists(client *cloudwatchlogs.Client, logGroupName, logStrea
 		LogGroupName:        aws.String(logGroupName),
 		LogStreamNamePrefix: aws.String(logStreamName),
 	})
-	if len(output.LogStreams) == 0 {
+
+	if err == nil && len(output.LogStreams) == 0 {
 		log.Printf("Log stream did not exist: %s Creating...", logStreamName)
 		_, err = client.CreateLogStream(context.TODO(), &cloudwatchlogs.CreateLogStreamInput{
 			LogGroupName:  aws.String(logGroupName),
