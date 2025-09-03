@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"os"
 	"strings"
 	"sync"
@@ -154,6 +155,9 @@ an argument or read from stdin.`,
 		scanner := bufio.NewScanner(readFrom)
 		streamIdx := 0
 		var color *lipgloss.Color
+		if !noColor { // shuffle colors
+			rand.Shuffle(len(colors), func(i, j int) { colors[i], colors[j] = colors[j], colors[i] })
+		}
 
 		// iterate over streams and request events for each
 		for scanner.Scan() {
