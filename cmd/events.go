@@ -27,12 +27,16 @@ var (
 	minPollingInterval = 1 * time.Second  // Minimum interval for polling events
 	maxPollingInterval = 16 * time.Second // Maximum interval for polling events
 	noColor            bool
+	group              string
+	stream             string
 )
 
 func init() {
 	eventsCmd.PersistentFlags().BoolVarP(&jsonOutput, "json", "", false, "Output full json")
 	eventsCmd.PersistentFlags().BoolVarP(&follow, "follow", "f", false, "Follow log stream")
 	eventsCmd.PersistentFlags().BoolVarP(&noColor, "no-color", "c", false, "disable colored output")
+	eventsCmd.PersistentFlags().StringVar(&group, "group", "", "Log group name")
+	eventsCmd.PersistentFlags().StringVar(&stream, "stream", "", "Log stream name")
 	rootCmd.AddCommand(eventsCmd)
 }
 
@@ -123,9 +127,23 @@ func requestEvents(client *cloudwatchlogs.Client, groupName, streamName string, 
 var eventsCmd = &cobra.Command{
 	Use:   "events [stream arn]",
 	Short: "list events for log stream(s)",
-	Long: `Lists events for a log stream. Stream arn can be passed as 
-an argument or read from stdin.`,
-	Args: cobra.MatchAll(cobra.MaximumNArgs(1)),
+	Long: `Lists events for a log stream. Provide a stream ARN or use --group and --stream flags.
+Examples:
+  cwl events arn:aws:logs:us-west-2:123456789012:log-group:/my/log/group:log-stream:my-stream
+  cwl events --group /my/log/group --stream my-stream`,
+	Args: func(cmd *cobra.Command, args []string) error {
+		if group != "" || stream != "" {
+			if group == "" || stream == "" {
+				return fmt.Errorf("both --group and --stream must be provided")
+			}
+			if len(args) != 0 {
+				return fmt.Errorf("cannot provide ARN when using --group/--stream flags")
+			}
+		} else if len(args) > 1 {
+			return fmt.Errorf("only one ARN argument expected")
+		}
+		return nil
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 
 		client, err := fetch.CreateClient(awsProfile)
@@ -135,7 +153,11 @@ an argument or read from stdin.`,
 
 		var readFrom io.Reader
 
-		if len(args) == 0 {
+		if group != "" && stream != "" {
+			// passed in both a group and a stream
+			virtualArn := fmt.Sprintf("_:log-group:%s:log-stream:%s", group, stream)
+			readFrom = strings.NewReader(virtualArn)
+		} else if len(args) == 0 {
 			// read streams from stdin
 			readFrom = os.Stdin
 		} else {
