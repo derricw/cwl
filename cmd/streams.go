@@ -19,9 +19,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 )
 
+var prefix string
+
 func init() {
 	streamsCmd.PersistentFlags().BoolVarP(&jsonOutput, "json", "", false, "Output full json")
 	streamsCmd.PersistentFlags().BoolVarP(&follow, "follow", "f", false, "Keep checking for new streams with events")
+	streamsCmd.PersistentFlags().StringVar(&prefix, "prefix", "", "Filter streams by prefix")
 	rootCmd.AddCommand(streamsCmd)
 }
 
@@ -69,19 +72,24 @@ var streamsCmd = &cobra.Command{
 			start := time.Now().UnixNano() / 1000000
 			for {
 				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-				output, err := client.DescribeLogStreams(ctx, &cloudwatchlogs.DescribeLogStreamsInput{
+				input := &cloudwatchlogs.DescribeLogStreamsInput{
 					LogGroupName: &groupName,
 					Limit:        aws.Int32(50),
 					OrderBy:      types.OrderByLastEventTime,
 					Descending:   aws.Bool(true),
 					NextToken:    nextToken,
-				})
+				}
+				if prefix != "" {
+					input.LogStreamNamePrefix = &prefix
+					input.OrderBy = types.OrderByLogStreamName
+				}
+				output, err := client.DescribeLogStreams(ctx, input)
 				if err != nil {
 					log.Fatal(err)
 				}
 				cancel()
 				for _, stream := range output.LogStreams {
-					if !follow || *stream.LastIngestionTime > start {
+					if !follow || stream.LastIngestionTime == nil || *stream.LastIngestionTime > start {
 						if _, found := seen[*stream.LogStreamName]; !found {
 							writeStream(stream)
 							seen[*stream.LogStreamName] = struct{}{}
