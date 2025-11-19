@@ -1,6 +1,8 @@
 package model
 
 import (
+	"fmt"
+
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -110,7 +112,10 @@ func (s *EventsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 }
 
 func (s *EventsState) View(m *model) string {
-	return m.config.Styles.DocStyle.Render(m.eventsViewer.View())
+	header := m.config.Styles.HeaderStyle.Render("Log Stream: " + m.currentStreamName)
+	footer := m.config.Styles.FooterStyle.Render(fmt.Sprintf("%.0f%%", m.eventsViewer.ScrollPercent()*100))
+	content := m.eventsViewer.View()
+	return m.config.Styles.DocStyle.Render(header + "\n" + content + "\n" + footer)
 }
 
 func (s *EventsState) Enter(m *model) tea.Cmd {

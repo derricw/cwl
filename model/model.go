@@ -9,12 +9,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-
-
-
-
-
-
 type logGroupMsg []types.LogGroup
 type logStreamMsg struct {
 	groupName string
@@ -43,14 +37,15 @@ func (i item) FilterValue() string { return i.title }
 type model struct {
 	Log io.Writer
 
-	groupsList  *GroupsList
-	streamsList *StreamsList
-	eventsViewer *EventsViewer
-	logGroups   []types.LogGroup
-	logStreams  []types.LogStream
-	state       State
-	deps        *Dependencies
-	config      *Config
+	groupsList        *GroupsList
+	streamsList       *StreamsList
+	eventsViewer      *EventsViewer
+	logGroups         []types.LogGroup
+	logStreams        []types.LogStream
+	state             State
+	deps              *Dependencies
+	config            *Config
+	currentStreamName string
 }
 
 func (m model) Init() tea.Cmd {
@@ -67,11 +62,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.logStreams = msg.streams
 	case logEventMsg:
 		m.eventsViewer.SetEvents(msg.events)
+		m.currentStreamName = msg.streamName
 	case tea.WindowSizeMsg:
 		h, v := m.config.Styles.DocStyle.GetFrameSize()
 		m.groupsList.SetSize(msg.Width-h, msg.Height-v)
 		m.streamsList.SetSize(msg.Width-h, msg.Height-v)
-		m.eventsViewer.SetSize(msg.Width-h, msg.Height-v)
+		// Reserve space for header and footer in events viewer
+		m.eventsViewer.SetSize(msg.Width-h, msg.Height-v-2)
 	}
 	m.Log.Write([]byte(fmt.Sprintf("%+v\n", msg)))
 
@@ -86,8 +83,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	return m, cmd
 }
-
-
 
 // primary rendering function
 func (m model) View() string {
