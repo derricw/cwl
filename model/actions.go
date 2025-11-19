@@ -12,21 +12,16 @@ type Action interface {
 
 // LoadGroupsAction loads log groups
 type LoadGroupsAction struct {
-	profile string
+	deps *Dependencies
 }
 
-func NewLoadGroupsAction(profile string) *LoadGroupsAction {
-	return &LoadGroupsAction{profile: profile}
+func NewLoadGroupsAction(deps *Dependencies) *LoadGroupsAction {
+	return &LoadGroupsAction{deps: deps}
 }
 
 func (a *LoadGroupsAction) Execute() tea.Cmd {
 	return func() tea.Msg {
-		client, err := fetch.CreateClient(a.profile)
-		if err != nil {
-			return errMsg{err}
-		}
-		
-		logGroups, err := fetch.FetchLogGroups(client)
+		logGroups, err := fetch.FetchLogGroups(a.deps.Client)
 		if err != nil {
 			return errMsg{err}
 		}
@@ -36,25 +31,20 @@ func (a *LoadGroupsAction) Execute() tea.Cmd {
 
 // LoadStreamsAction loads log streams for a group
 type LoadStreamsAction struct {
-	profile   string
+	deps      *Dependencies
 	groupName string
 }
 
-func NewLoadStreamsAction(profile, groupName string) *LoadStreamsAction {
+func NewLoadStreamsAction(deps *Dependencies, groupName string) *LoadStreamsAction {
 	return &LoadStreamsAction{
-		profile:   profile,
+		deps:      deps,
 		groupName: groupName,
 	}
 }
 
 func (a *LoadStreamsAction) Execute() tea.Cmd {
 	return func() tea.Msg {
-		client, err := fetch.CreateClient(a.profile)
-		if err != nil {
-			return errMsg{err}
-		}
-		
-		logStreams, err := fetch.FetchLogStreams(client, a.groupName, 1000)
+		logStreams, err := fetch.FetchLogStreams(a.deps.Client, a.groupName, 1000)
 		if err != nil {
 			return errMsg{err}
 		}
@@ -67,14 +57,14 @@ func (a *LoadStreamsAction) Execute() tea.Cmd {
 
 // LoadEventsAction loads log events for a stream
 type LoadEventsAction struct {
-	profile    string
+	deps       *Dependencies
 	groupName  string
 	streamName string
 }
 
-func NewLoadEventsAction(profile, groupName, streamName string) *LoadEventsAction {
+func NewLoadEventsAction(deps *Dependencies, groupName, streamName string) *LoadEventsAction {
 	return &LoadEventsAction{
-		profile:    profile,
+		deps:       deps,
 		groupName:  groupName,
 		streamName: streamName,
 	}
@@ -82,12 +72,7 @@ func NewLoadEventsAction(profile, groupName, streamName string) *LoadEventsActio
 
 func (a *LoadEventsAction) Execute() tea.Cmd {
 	return func() tea.Msg {
-		client, err := fetch.CreateClient(a.profile)
-		if err != nil {
-			return errMsg{err}
-		}
-		
-		events, err := fetch.FetchLogEvents(client, a.groupName, a.streamName)
+		events, err := fetch.FetchLogEvents(a.deps.Client, a.groupName, a.streamName)
 		if err != nil {
 			return errMsg{err}
 		}

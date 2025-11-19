@@ -19,14 +19,14 @@ func (s *GroupsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c":
+		case m.config.KeyBinds.Quit:
 			return s, tea.Quit
-		case "esc":
+		case m.config.KeyBinds.Back:
 			return s, nil
-		case "enter":
+		case m.config.KeyBinds.Select:
 			if !m.groupsList.Model.SettingFilter() {
 				groupName := m.groupsList.Model.SelectedItem().(item).Title()
-				return &StreamsState{}, NewLoadStreamsAction(AwsProfile, groupName).Execute()
+				return &StreamsState{}, NewLoadStreamsAction(m.deps, groupName).Execute()
 			}
 		}
 	}
@@ -37,7 +37,7 @@ func (s *GroupsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 }
 
 func (s *GroupsState) View(m *model) string {
-	return docStyle.Render(m.groupsList.View())
+	return m.config.Styles.DocStyle.Render(m.groupsList.View())
 }
 
 func (s *GroupsState) Enter(m *model) tea.Cmd {
@@ -54,15 +54,15 @@ func (s *StreamsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c":
+		case m.config.KeyBinds.Quit:
 			return s, tea.Quit
-		case "enter":
+		case m.config.KeyBinds.Select:
 			if !m.streamsList.Model.SettingFilter() {
 				groupName := m.groupsList.Model.SelectedItem().(item).Title()
 				streamName := m.streamsList.Model.SelectedItem().(item).Title()
-				return &EventsState{}, NewLoadEventsAction(AwsProfile, groupName, streamName).Execute()
+				return &EventsState{}, NewLoadEventsAction(m.deps, groupName, streamName).Execute()
 			}
-		case "esc":
+		case m.config.KeyBinds.Back:
 			return &GroupsState{}, nil
 		}
 	}
@@ -73,7 +73,7 @@ func (s *StreamsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 }
 
 func (s *StreamsState) View(m *model) string {
-	return docStyle.Render(m.streamsList.View())
+	return m.config.Styles.DocStyle.Render(m.streamsList.View())
 }
 
 func (s *StreamsState) Enter(m *model) tea.Cmd {
@@ -90,9 +90,9 @@ func (s *EventsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c":
+		case m.config.KeyBinds.Quit:
 			return s, tea.Quit
-		case "esc":
+		case m.config.KeyBinds.Back:
 			m.eventsViewer.SetContent("")
 			return &StreamsState{}, nil
 		}
@@ -104,7 +104,7 @@ func (s *EventsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 }
 
 func (s *EventsState) View(m *model) string {
-	return docStyle.Render(m.eventsViewer.View())
+	return m.config.Styles.DocStyle.Render(m.eventsViewer.View())
 }
 
 func (s *EventsState) Enter(m *model) tea.Cmd {

@@ -31,8 +31,12 @@ var rootCmd = &cobra.Command{
 				os.Exit(1)
 			}
 		}
-		model.AwsProfile = awsProfile
-		m := model.InitialModel()
+		deps, err := model.NewDependencies(awsProfile)
+		if err != nil {
+			fmt.Printf("Error creating dependencies: %v", err)
+			os.Exit(1)
+		}
+		m := model.InitialModel(deps)
 		m.Log = log
 		p := tea.NewProgram(m, tea.WithAltScreen())
 		if _, err := p.Run(); err != nil {

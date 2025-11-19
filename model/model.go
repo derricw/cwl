@@ -7,13 +7,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 
 
-var docStyle = lipgloss.NewStyle().Margin(1, 2)
-var AwsProfile string
+
 
 
 
@@ -51,10 +49,12 @@ type model struct {
 	logGroups   []types.LogGroup
 	logStreams  []types.LogStream
 	state       State
+	deps        *Dependencies
+	config      *Config
 }
 
 func (m model) Init() tea.Cmd {
-	return NewLoadGroupsAction(AwsProfile).Execute()
+	return NewLoadGroupsAction(m.deps).Execute()
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -68,7 +68,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case logEventMsg:
 		m.eventsViewer.SetEvents(msg.events)
 	case tea.WindowSizeMsg:
-		h, v := docStyle.GetFrameSize()
+		h, v := m.config.Styles.DocStyle.GetFrameSize()
 		m.groupsList.SetSize(msg.Width-h, msg.Height-v)
 		m.streamsList.SetSize(msg.Width-h, msg.Height-v)
 		m.eventsViewer.SetSize(msg.Width-h, msg.Height-v)
@@ -95,11 +95,13 @@ func (m model) View() string {
 }
 
 // initialize model data
-func InitialModel() model {
+func InitialModel(deps *Dependencies) model {
 	return model{
 		groupsList:   NewGroupsList(),
 		streamsList:  NewStreamsList(),
 		eventsViewer: NewEventsViewer(),
 		state:        &GroupsState{},
+		deps:         deps,
+		config:       DefaultConfig(),
 	}
 }
