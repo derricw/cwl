@@ -30,7 +30,7 @@ func (s *GroupsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 			}
 		}
 	}
-	
+
 	comp, cmd := m.groupsList.Update(msg)
 	m.groupsList = comp.(*GroupsList)
 	return s, cmd
@@ -66,7 +66,7 @@ func (s *StreamsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 			return &GroupsState{}, nil
 		}
 	}
-	
+
 	comp, cmd := m.streamsList.Update(msg)
 	m.streamsList = comp.(*StreamsList)
 	return s, cmd
@@ -95,9 +95,15 @@ func (s *EventsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 		case m.config.KeyBinds.Back:
 			m.eventsViewer.SetContent("")
 			return &StreamsState{}, nil
+		case m.config.KeyBinds.ScrollBottom:
+			m.eventsViewer.GotoBottom()
+			return s, nil
+		case m.config.KeyBinds.ScrollTop:
+			m.eventsViewer.GotoTop()
+			return s, nil
 		}
 	}
-	
+
 	comp, cmd := m.eventsViewer.Update(msg)
 	m.eventsViewer = comp.(*EventsViewer)
 	return s, cmd

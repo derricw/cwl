@@ -21,9 +21,11 @@ type StyleConfig struct {
 
 // KeyBindConfig holds key binding configuration
 type KeyBindConfig struct {
-	Quit   string
-	Back   string
-	Select string
+	Quit         string
+	Back         string
+	Select       string
+	ScrollBottom string
+	ScrollTop    string
 }
 
 // TimeoutConfig holds timeout configuration
@@ -39,9 +41,11 @@ func DefaultConfig() *Config {
 			ErrorStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("9")),
 		},
 		KeyBinds: KeyBindConfig{
-			Quit:   "ctrl+c",
-			Back:   "esc",
-			Select: "enter",
+			Quit:         "ctrl+c",
+			Back:         "esc",
+			Select:       "enter",
+			ScrollBottom: "end",
+			ScrollTop:    "home",
 		},
 		Timeouts: TimeoutConfig{
 			APITimeout: 30 * time.Second,
