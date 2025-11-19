@@ -1,15 +1,11 @@
 package model
 
 import (
-	"bytes"
 	"fmt"
 	"io"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 
-	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -102,9 +98,9 @@ func (i item) FilterValue() string { return i.title }
 type model struct {
 	Log io.Writer
 
-	groupsList  list.Model
-	streamsList list.Model
-	viewport    viewport.Model
+	groupsList  *GroupsList
+	streamsList *StreamsList
+	eventsViewer *EventsViewer
 	logGroups   []types.LogGroup
 	logStreams  []types.LogStream
 	mode        mode
@@ -117,39 +113,18 @@ func (m model) Init() tea.Cmd {
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case logGroupMsg:
-		items := []list.Item{}
-		for _, group := range msg {
-			items = append(items, item{
-				title: *group.LogGroupName,
-				desc:  *group.LogGroupArn,
-			})
-		}
-		m.groupsList.SetItems(items)
+		m.groupsList.SetGroups(msg)
 		m.logGroups = msg
 	case logStreamMsg:
-		items := []list.Item{}
-		for _, stream := range msg.streams {
-			m.Log.Write([]byte(fmt.Sprintf("Log Stream: %s\n", *stream.LogStreamName)))
-			items = append(items, item{
-				title: *stream.LogStreamName,
-				desc:  time.Unix(0, *stream.LastEventTimestamp*1000000).Format("2006-01-02 15:04:05"),
-			})
-		}
-		m.streamsList.SetItems(items)
-		m.streamsList.Title = fmt.Sprintf("Log Streams: %s", msg.groupName)
+		m.streamsList.SetStreams(msg.groupName, msg.streams)
 		m.logStreams = msg.streams
 	case logEventMsg:
-		var buffer bytes.Buffer
-		for _, event := range msg.events {
-			buffer.WriteString(fmt.Sprintf("%s\n", *event.Message))
-		}
-		result := buffer.String()
-		m.viewport.SetContent(result)
+		m.eventsViewer.SetEvents(msg.events)
 	case tea.WindowSizeMsg:
 		h, v := docStyle.GetFrameSize()
 		m.groupsList.SetSize(msg.Width-h, msg.Height-v)
 		m.streamsList.SetSize(msg.Width-h, msg.Height-v)
-		m.viewport.Width, m.viewport.Height = msg.Width-h, msg.Height-v
+		m.eventsViewer.SetSize(msg.Width-h, msg.Height-v)
 	}
 	m.Log.Write([]byte(fmt.Sprintf("%+v\n", msg)))
 
@@ -176,18 +151,19 @@ func (m model) updateGroups(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "esc":
 			return m, nil // don't exit on escape
 		case "enter":
-			if !m.groupsList.SettingFilter() {
+			if !m.groupsList.Model.SettingFilter() {
 				m.mode = Streams
 				return m, func() tea.Msg {
 					return getLogStreams(
-						m.groupsList.SelectedItem().(item).Title(),
+						m.groupsList.Model.SelectedItem().(item).Title(),
 					)
 				}
 			}
 		}
 	}
 	var cmd tea.Cmd
-	m.groupsList, cmd = m.groupsList.Update(msg)
+	comp, cmd := m.groupsList.Update(msg)
+	m.groupsList = comp.(*GroupsList)
 	return m, cmd
 }
 
@@ -200,12 +176,12 @@ func (m model) updateStreams(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return m, tea.Quit
 		case "enter":
-			if !m.streamsList.SettingFilter() {
+			if !m.streamsList.Model.SettingFilter() {
 				m.mode = Page
 				return m, func() tea.Msg {
 					return getLogEvents(
-						m.groupsList.SelectedItem().(item).Title(),
-						m.streamsList.SelectedItem().(item).Title(),
+						m.groupsList.Model.SelectedItem().(item).Title(),
+						m.streamsList.Model.SelectedItem().(item).Title(),
 					)
 				}
 			}
@@ -216,7 +192,8 @@ func (m model) updateStreams(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	var cmd tea.Cmd
-	m.streamsList, cmd = m.streamsList.Update(msg)
+	comp, cmd := m.streamsList.Update(msg)
+	m.streamsList = comp.(*StreamsList)
 	return m, cmd
 }
 
@@ -230,12 +207,13 @@ func (m model) updatePage(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "esc":
 			m.mode = Streams
-			m.viewport.SetContent("")
+			m.eventsViewer.SetContent("")
 			return m, nil
 		}
 	}
 	var cmd tea.Cmd
-	m.viewport, cmd = m.viewport.Update(msg)
+	comp, cmd := m.eventsViewer.Update(msg)
+	m.eventsViewer = comp.(*EventsViewer)
 	return m, cmd
 }
 
@@ -246,22 +224,15 @@ func (m model) View() string {
 	} else if m.mode == Streams {
 		return docStyle.Render(m.streamsList.View())
 	} else {
-		return docStyle.Render(m.viewport.View())
+		return docStyle.Render(m.eventsViewer.View())
 	}
 }
 
 // initialize model data
 func InitialModel() model {
-	groups, streams := []list.Item{}, []list.Item{}
-	// Delegates definte rendering for list items
-	groupsDel := list.NewDefaultDelegate()
-	streamsDel := list.NewDefaultDelegate()
-	groupsDel.ShowDescription, streamsDel.ShowDescription = false, true
-	m := model{
-		groupsList:  list.New(groups, groupsDel, 0, 0),
-		streamsList: list.New(streams, streamsDel, 0, 0),
-		viewport:    viewport.New(50, 50),
+	return model{
+		groupsList:   NewGroupsList(),
+		streamsList:  NewStreamsList(),
+		eventsViewer: NewEventsViewer(),
 	}
-	m.groupsList.Title = "Log Groups"
-	return m
 }
