@@ -7,6 +7,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -26,6 +27,8 @@ type GroupsList struct {
 func NewGroupsList() *GroupsList {
 	delegate := list.NewDefaultDelegate()
 	delegate.ShowDescription = false
+	delegate.SetHeight(1)
+	delegate.SetSpacing(0)
 	l := list.New([]list.Item{}, delegate, 0, 0)
 	l.Title = "Log Groups"
 	return &GroupsList{Model: l}
@@ -86,7 +89,7 @@ func (s *StreamsList) SetSize(width, height int) {
 func (s *StreamsList) SetStreams(groupName string, streams []types.LogStream) {
 	s.groupName = groupName
 	s.Title = fmt.Sprintf("Log Streams: %s", groupName)
-	
+
 	items := make([]list.Item, 0, len(streams))
 	for _, stream := range streams {
 		items = append(items, item{
@@ -100,26 +103,48 @@ func (s *StreamsList) SetStreams(groupName string, streams []types.LogStream) {
 // EventsViewer component
 type EventsViewer struct {
 	viewport.Model
-	rawEvents []types.OutputLogEvent
+	rawEvents   []types.OutputLogEvent
+	filterInput textinput.Model
+	filtering   bool
+	filterValue string
 }
 
 func NewEventsViewer() *EventsViewer {
 	vp := viewport.New(50, 50)
-	return &EventsViewer{Model: vp}
+	fi := textinput.New()
+	fi.Placeholder = "Filter events..."
+	fi.CharLimit = 100
+	return &EventsViewer{
+		Model:       vp,
+		filterInput: fi,
+	}
 }
 
 func (e *EventsViewer) Update(msg tea.Msg) (Component, tea.Cmd) {
 	var cmd tea.Cmd
-	e.Model, cmd = e.Model.Update(msg)
+	if e.filtering {
+		e.filterInput, cmd = e.filterInput.Update(msg)
+		e.filterValue = e.filterInput.Value()
+	} else {
+		e.Model, cmd = e.Model.Update(msg)
+	}
 	return e, cmd
 }
 
 func (e *EventsViewer) View() string {
+	if e.filtering {
+		return e.filterInput.View() + "\n" + e.Model.View()
+	}
 	return e.Model.View()
 }
 
 func (e *EventsViewer) SetSize(width, height int) {
-	e.Width, e.Height = width, height
+	if e.filtering {
+		e.Width, e.Height = width, height-1 // Reserve space for filter input
+	} else {
+		e.Width, e.Height = width, height
+	}
+	e.filterInput.Width = width - 10
 }
 
 func (e *EventsViewer) SetEvents(events []types.OutputLogEvent) {
@@ -127,10 +152,33 @@ func (e *EventsViewer) SetEvents(events []types.OutputLogEvent) {
 	e.RefreshContent(false)
 }
 
+func (e *EventsViewer) StartFiltering() {
+	e.filtering = true
+	e.filterInput.Focus()
+}
+
+func (e *EventsViewer) StopFiltering() {
+	e.filtering = false
+	e.filterInput.Blur()
+}
+
+func (e *EventsViewer) ClearFilter() {
+	e.filterValue = ""
+	e.filterInput.SetValue("")
+}
+
+func (e *EventsViewer) IsFiltering() bool {
+	return e.filtering
+}
+
 func (e *EventsViewer) RefreshContent(wrapEnabled bool) {
 	content := ""
 	for _, event := range e.rawEvents {
 		message := *event.Message
+		// Apply filter if active
+		if e.filterValue != "" && !strings.Contains(strings.ToLower(message), strings.ToLower(e.filterValue)) {
+			continue
+		}
 		if wrapEnabled && e.Width > 0 {
 			message = wrapText(message, e.Width)
 		}
@@ -144,7 +192,7 @@ func wrapText(text string, width int) string {
 	if width <= 0 || len(text) <= width {
 		return text
 	}
-	
+
 	var lines []string
 	for len(text) > width {
 		lines = append(lines, text[:width])
@@ -153,6 +201,7 @@ func wrapText(text string, width int) string {
 	if len(text) > 0 {
 		lines = append(lines, text)
 	}
-	
+
 	return strings.Join(lines, "\n")
 }
+

@@ -91,33 +91,61 @@ type EventsState struct{}
 func (s *EventsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case m.config.KeyBinds.Quit:
-			return s, tea.Quit
-		case m.config.KeyBinds.Back:
-			m.eventsViewer.SetContent("")
-			return &StreamsState{}, nil
-		case m.config.KeyBinds.ScrollBottom:
-			m.eventsViewer.GotoBottom()
-			return s, nil
-		case m.config.KeyBinds.ScrollTop:
-			m.eventsViewer.GotoTop()
-			return s, nil
-		case m.config.KeyBinds.ToggleWrap:
-			m.wrapEnabled = !m.wrapEnabled
-			m.eventsViewer.RefreshContent(m.wrapEnabled)
-			return s, nil
+		if m.eventsViewer.IsFiltering() {
+			switch msg.String() {
+			case "esc":
+				m.eventsViewer.ClearFilter()
+				m.eventsViewer.StopFiltering()
+				m.eventsViewer.RefreshContent(m.wrapEnabled)
+				return s, nil
+			case "enter":
+				m.eventsViewer.StopFiltering()
+				return s, nil
+			}
+		} else {
+			switch msg.String() {
+			case m.config.KeyBinds.Quit:
+				return s, tea.Quit
+			case m.config.KeyBinds.Back:
+				m.eventsViewer.SetContent("")
+				return &StreamsState{}, nil
+			case m.config.KeyBinds.ScrollBottom:
+				m.eventsViewer.GotoBottom()
+				return s, nil
+			case m.config.KeyBinds.ScrollTop:
+				m.eventsViewer.GotoTop()
+				return s, nil
+			case m.config.KeyBinds.ToggleWrap:
+				m.wrapEnabled = !m.wrapEnabled
+				m.eventsViewer.RefreshContent(m.wrapEnabled)
+				return s, nil
+			case m.config.KeyBinds.Filter:
+				m.eventsViewer.StartFiltering()
+				return s, nil
+			}
 		}
 	}
 
 	comp, cmd := m.eventsViewer.Update(msg)
 	m.eventsViewer = comp.(*EventsViewer)
+	
+	// Refresh content when filter changes
+	if m.eventsViewer.IsFiltering() {
+		m.eventsViewer.RefreshContent(m.wrapEnabled)
+	}
+	
 	return s, cmd
 }
 
 func (s *EventsState) View(m *model) string {
 	header := m.config.Styles.HeaderStyle.Render("Log Stream: " + m.currentStreamName)
-	footer := m.config.Styles.FooterStyle.Render(fmt.Sprintf("%.0f%%", m.eventsViewer.ScrollPercent()*100))
+	footerText := fmt.Sprintf("%.0f%%", m.eventsViewer.ScrollPercent()*100)
+	if m.eventsViewer.IsFiltering() {
+		footerText += " | ESC/Enter to exit filter"
+	} else {
+		footerText += " | / to filter"
+	}
+	footer := m.config.Styles.FooterStyle.Render(footerText)
 	content := m.eventsViewer.View()
 	return m.config.Styles.DocStyle.Render(header + "\n" + content + "\n" + footer)
 }
