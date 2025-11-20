@@ -103,6 +103,10 @@ func (s *EventsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 		case m.config.KeyBinds.ScrollTop:
 			m.eventsViewer.GotoTop()
 			return s, nil
+		case m.config.KeyBinds.ToggleWrap:
+			m.wrapEnabled = !m.wrapEnabled
+			m.eventsViewer.RefreshContent(m.wrapEnabled)
+			return s, nil
 		}
 	}
 

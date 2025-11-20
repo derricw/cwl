@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
@@ -99,6 +100,7 @@ func (s *StreamsList) SetStreams(groupName string, streams []types.LogStream) {
 // EventsViewer component
 type EventsViewer struct {
 	viewport.Model
+	rawEvents []types.OutputLogEvent
 }
 
 func NewEventsViewer() *EventsViewer {
@@ -121,9 +123,36 @@ func (e *EventsViewer) SetSize(width, height int) {
 }
 
 func (e *EventsViewer) SetEvents(events []types.OutputLogEvent) {
+	e.rawEvents = events
+	e.RefreshContent(false)
+}
+
+func (e *EventsViewer) RefreshContent(wrapEnabled bool) {
 	content := ""
-	for _, event := range events {
-		content += fmt.Sprintf("%s\n", *event.Message)
+	for _, event := range e.rawEvents {
+		message := *event.Message
+		if wrapEnabled && e.Width > 0 {
+			message = wrapText(message, e.Width)
+		}
+		content += fmt.Sprintf("%s\n", message)
 	}
 	e.SetContent(content)
+}
+
+// wrapText wraps text to the specified width
+func wrapText(text string, width int) string {
+	if width <= 0 || len(text) <= width {
+		return text
+	}
+	
+	var lines []string
+	for len(text) > width {
+		lines = append(lines, text[:width])
+		text = text[width:]
+	}
+	if len(text) > 0 {
+		lines = append(lines, text)
+	}
+	
+	return strings.Join(lines, "\n")
 }

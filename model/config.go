@@ -28,6 +28,7 @@ type KeyBindConfig struct {
 	Select       string
 	ScrollBottom string
 	ScrollTop    string
+	ToggleWrap   string
 }
 
 // TimeoutConfig holds timeout configuration
@@ -50,6 +51,7 @@ func DefaultConfig() *Config {
 			Select:       "enter",
 			ScrollBottom: "end",
 			ScrollTop:    "home",
+			ToggleWrap:   "w",
 		},
 		Timeouts: TimeoutConfig{
 			APITimeout: 30 * time.Second,

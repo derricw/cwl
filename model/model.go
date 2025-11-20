@@ -46,6 +46,7 @@ type model struct {
 	deps              *Dependencies
 	config            *Config
 	currentStreamName string
+	wrapEnabled       bool
 }
 
 func (m model) Init() tea.Cmd {
