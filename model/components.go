@@ -108,12 +108,13 @@ func (s *StreamsList) SetStreams(groupName string, streams []types.LogStream) {
 // EventsViewer component
 type EventsViewer struct {
 	viewport.Model
-	rawEvents   []types.OutputLogEvent
-	filterInput textinput.Model
-	filtering   bool
-	filterValue string
-	loading     bool
-	spinner     spinner.Model
+	rawEvents     []types.OutputLogEvent
+	filterInput   textinput.Model
+	filtering     bool
+	filterValue   string
+	loading       bool
+	spinner       spinner.Model
+	lastEventTime *int64
 }
 
 func NewEventsViewer() *EventsViewer {
@@ -184,7 +185,14 @@ func (e *EventsViewer) IsLoading() bool {
 func (e *EventsViewer) AppendEvents(events []types.OutputLogEvent) {
 	e.loading = false
 	e.rawEvents = append(e.rawEvents, events...)
+	if len(events) > 0 {
+		e.lastEventTime = events[len(events)-1].Timestamp
+	}
 	e.RefreshContent(false)
+}
+
+func (e *EventsViewer) GetLastEventTime() *int64 {
+	return e.lastEventTime
 }
 
 func (e *EventsViewer) StartFiltering() {

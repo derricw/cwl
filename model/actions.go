@@ -131,3 +131,29 @@ func waitForBatch(ch <-chan tea.Msg) tea.Cmd {
 		return msg
 	}
 }
+
+type PollNewEventsAction struct {
+	deps       *Dependencies
+	groupName  string
+	streamName string
+	startTime  *int64
+}
+
+func NewPollNewEventsAction(deps *Dependencies, groupName, streamName string, startTime *int64) *PollNewEventsAction {
+	return &PollNewEventsAction{
+		deps:       deps,
+		groupName:  groupName,
+		streamName: streamName,
+		startTime:  startTime,
+	}
+}
+
+func (a *PollNewEventsAction) Execute() tea.Cmd {
+	return func() tea.Msg {
+		events, err := fetch.FetchNewLogEvents(a.deps.Client, a.groupName, a.streamName, a.startTime)
+		if err != nil {
+			return errMsg{err}
+		}
+		return newEventsMsg(events)
+	}
+}

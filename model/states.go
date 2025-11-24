@@ -105,12 +105,21 @@ func (s *StreamsState) tickCmd() tea.Cmd {
 }
 
 // EventsState handles log events view
-type EventsState struct{}
+type EventsState struct {
+	groupName  string
+	streamName string
+}
 
 func (s *EventsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 	var cmds []tea.Cmd
 	
 	switch msg := msg.(type) {
+	case tickMsg:
+		if !m.eventsViewer.IsLoading() {
+			lastTime := m.eventsViewer.GetLastEventTime()
+			cmds = append(cmds, NewPollNewEventsAction(m.deps, s.groupName, s.streamName, lastTime).Execute())
+		}
+		return s, tea.Batch(append(cmds, s.tickCmd())...)
 	case tea.KeyMsg:
 		if m.eventsViewer.IsFiltering() {
 			switch msg.String() {
@@ -129,6 +138,7 @@ func (s *EventsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 				return s, tea.Quit
 			case m.config.KeyBinds.Back:
 				m.eventsViewer.SetContent("")
+				m.eventsViewer.lastEventTime = nil
 				return &StreamsState{}, nil
 			case m.config.KeyBinds.ScrollBottom:
 				m.eventsViewer.GotoBottom()
@@ -175,7 +185,19 @@ func (s *EventsState) View(m *model) string {
 }
 
 func (s *EventsState) Enter(m *model) tea.Cmd {
-	return nil
+	if groupItem := m.groupsList.Model.SelectedItem(); groupItem != nil {
+		if streamItem := m.streamsList.Model.SelectedItem(); streamItem != nil {
+			s.groupName = groupItem.(item).Title()
+			s.streamName = streamItem.(item).Title()
+		}
+	}
+	return s.tickCmd()
+}
+
+func (s *EventsState) tickCmd() tea.Cmd {
+	return tea.Tick(5*time.Second, func(t time.Time) tea.Msg {
+		return tickMsg(t)
+	})
 }
 
 func (s *EventsState) Exit(m *model) {

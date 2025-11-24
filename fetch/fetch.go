@@ -121,3 +121,19 @@ func FetchLogEventsStreaming(client *cloudwatchlogs.Client, logGroupName, logStr
 	}
 	return nil
 }
+
+func FetchNewLogEvents(client *cloudwatchlogs.Client, logGroupName, logStreamName string, startTime *int64) ([]types.OutputLogEvent, error) {
+	if startTime == nil {
+		return nil, nil
+	}
+	output, err := client.GetLogEvents(context.TODO(), &cloudwatchlogs.GetLogEventsInput{
+		LogGroupName:  &logGroupName,
+		LogStreamName: &logStreamName,
+		StartTime:     aws.Int64(*startTime + 1),
+		StartFromHead: aws.Bool(true),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return output.Events, nil
+}
