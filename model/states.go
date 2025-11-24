@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -54,15 +55,26 @@ type StreamsState struct{}
 
 func (s *StreamsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tickMsg:
+		// periodically check for new streams
+		if selected := m.groupsList.Model.SelectedItem(); selected != nil {
+			groupName := selected.(item).Title()
+			return s, tea.Batch(NewLoadStreamsAction(m.deps, groupName).Execute(), s.tickCmd())
+		}
+		return s, s.tickCmd()
 	case tea.KeyMsg:
 		switch msg.String() {
 		case m.config.KeyBinds.Quit:
 			return s, tea.Quit
 		case m.config.KeyBinds.Select:
 			if !m.streamsList.Model.SettingFilter() {
-				groupName := m.groupsList.Model.SelectedItem().(item).Title()
-				streamName := m.streamsList.Model.SelectedItem().(item).Title()
-				return &EventsState{}, NewLoadEventsAction(m.deps, groupName, streamName).Execute()
+				if groupItem := m.groupsList.Model.SelectedItem(); groupItem != nil {
+					if streamItem := m.streamsList.Model.SelectedItem(); streamItem != nil {
+						groupName := groupItem.(item).Title()
+						streamName := streamItem.(item).Title()
+						return &EventsState{}, NewLoadEventsAction(m.deps, groupName, streamName).Execute()
+					}
+				}
 			}
 		case m.config.KeyBinds.Back:
 			return &GroupsState{}, nil
@@ -79,10 +91,17 @@ func (s *StreamsState) View(m *model) string {
 }
 
 func (s *StreamsState) Enter(m *model) tea.Cmd {
-	return nil
+	return s.tickCmd()
 }
 
 func (s *StreamsState) Exit(m *model) {
+}
+
+// background ticker (used to refresh stream list)
+func (s *StreamsState) tickCmd() tea.Cmd {
+	return tea.Tick(30*time.Second, func(t time.Time) tea.Msg {
+		return tickMsg(t)
+	})
 }
 
 // EventsState handles log events view
@@ -128,12 +147,12 @@ func (s *EventsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 
 	comp, cmd := m.eventsViewer.Update(msg)
 	m.eventsViewer = comp.(*EventsViewer)
-	
+
 	// Refresh content when filter changes
 	if m.eventsViewer.IsFiltering() {
 		m.eventsViewer.RefreshContent(m.wrapEnabled)
 	}
-	
+
 	return s, cmd
 }
 

@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 
@@ -19,6 +20,7 @@ type logEventMsg struct {
 	streamName string
 	events     []types.OutputLogEvent
 }
+type tickMsg time.Time
 
 type errMsg struct{ err error }
 

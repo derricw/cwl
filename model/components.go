@@ -97,7 +97,11 @@ func (s *StreamsList) SetStreams(groupName string, streams []types.LogStream) {
 			desc:  time.Unix(0, *stream.LastEventTimestamp*1000000).Format("2006-01-02 15:04:05"),
 		})
 	}
+	filterState := s.Model.FilterState()
 	s.SetItems(items)
+	if filterState == list.Filtering || filterState == list.FilterApplied {
+		s.Model.ResetFilter()
+	}
 }
 
 // EventsViewer component
