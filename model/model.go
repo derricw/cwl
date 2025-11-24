@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
-
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -14,6 +14,11 @@ type logGroupMsg []types.LogGroup
 type logStreamMsg struct {
 	groupName string
 	streams   []types.LogStream
+}
+type logStreamPartialMsg struct {
+	groupName string
+	streams   []types.LogStream
+	nextCmd   tea.Cmd
 }
 type logEventMsg struct {
 	groupName  string
@@ -68,6 +73,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case logStreamMsg:
 		m.streamsList.SetStreams(msg.groupName, msg.streams)
 		m.logStreams = msg.streams
+	case logStreamPartialMsg:
+		if !m.streamsList.Model.SettingFilter() && m.streamsList.Model.FilterState() != list.FilterApplied {
+			m.logStreams = append(m.logStreams, msg.streams...)
+			m.streamsList.SetStreams(msg.groupName, m.logStreams)
+		}
+		return m, msg.nextCmd
 	case logEventMsg:
 		m.eventsViewer.SetEvents(msg.events)
 		m.currentStreamName = msg.streamName

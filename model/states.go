@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -66,6 +67,12 @@ func (s *StreamsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 		switch msg.String() {
 		case m.config.KeyBinds.Quit:
 			return s, tea.Quit
+		case "esc":
+			if m.streamsList.Model.SettingFilter() || m.streamsList.Model.FilterState() == list.FilterApplied {
+				m.streamsList.Model.ResetFilter()
+				return s, nil
+			}
+			return &GroupsState{}, nil
 		case m.config.KeyBinds.Select:
 			if !m.streamsList.Model.SettingFilter() {
 				if groupItem := m.groupsList.Model.SelectedItem(); groupItem != nil {
@@ -77,7 +84,9 @@ func (s *StreamsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 				}
 			}
 		case m.config.KeyBinds.Back:
-			return &GroupsState{}, nil
+			if !m.streamsList.Model.SettingFilter() && m.streamsList.Model.FilterState() != list.FilterApplied {
+				return &GroupsState{}, nil
+			}
 		}
 	}
 

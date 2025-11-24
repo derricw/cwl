@@ -46,14 +46,39 @@ func NewLoadStreamsAction(deps *Dependencies, groupName string) *LoadStreamsActi
 }
 
 func (a *LoadStreamsAction) Execute() tea.Cmd {
-	return func() tea.Msg {
-		logStreams, err := fetch.FetchLogStreams(a.deps.Client, a.groupName, 1000)
-		if err != nil {
-			return errMsg{err}
+	ch := make(chan tea.Msg, 100)
+	go func() {
+		defer close(ch)
+		count := 0
+		err := fetch.FetchLogStreamsStreaming(a.deps.Client, a.groupName, func(streams []types.LogStream) error {
+			count += len(streams)
+			ch <- logStreamPartialMsg{groupName: a.groupName, streams: streams}
+			if count >= 20000 {
+				return fetch.ErrMaxStreamsReached
+			}
+			return nil
+		})
+		if err != nil && err != fetch.ErrMaxStreamsReached {
+			ch <- errMsg{err}
 		}
-		return logStreamMsg{
-			groupName: a.groupName,
-			streams:   logStreams,
+	}()
+	return waitForStreamBatch(ch)
+}
+
+func waitForStreamBatch(ch <-chan tea.Msg) tea.Cmd {
+	return func() tea.Msg {
+		select {
+		case msg, ok := <-ch:
+			if !ok {
+				return nil
+			}
+			if partial, ok := msg.(logStreamPartialMsg); ok {
+				partial.nextCmd = waitForStreamBatch(ch)
+				return partial
+			}
+			return msg
+		case <-time.After(50 * time.Millisecond):
+			return waitForStreamBatch(ch)()
 		}
 	}
 }

@@ -2,6 +2,7 @@ package fetch
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -64,6 +65,36 @@ func FetchLogStreams(client *cloudwatchlogs.Client, logGroupName string, maxResu
 		}
 	}
 	return streams, nil
+}
+
+var ErrMaxStreamsReached = fmt.Errorf("max streams reached")
+
+func FetchLogStreamsStreaming(client *cloudwatchlogs.Client, logGroupName string, callback func([]types.LogStream) error) error {
+	var nextToken *string
+
+	for {
+		output, err := client.DescribeLogStreams(context.TODO(), &cloudwatchlogs.DescribeLogStreamsInput{
+			LogGroupName: &logGroupName,
+			Limit:        aws.Int32(50),
+			OrderBy:      types.OrderByLastEventTime,
+			Descending:   aws.Bool(true),
+			NextToken:    nextToken,
+		})
+		if err != nil {
+			return err
+		}
+		if len(output.LogStreams) > 0 {
+			if err := callback(output.LogStreams); err != nil {
+				return err
+			}
+		}
+		if output.NextToken != nil {
+			nextToken = output.NextToken
+		} else {
+			break
+		}
+	}
+	return nil
 }
 
 func FetchLogEvents(client *cloudwatchlogs.Client, logGroupName, logStreamName string) ([]types.OutputLogEvent, error) {
