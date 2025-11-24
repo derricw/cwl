@@ -108,6 +108,8 @@ func (s *StreamsState) tickCmd() tea.Cmd {
 type EventsState struct{}
 
 func (s *EventsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
+	var cmds []tea.Cmd
+	
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if m.eventsViewer.IsFiltering() {
@@ -121,7 +123,7 @@ func (s *EventsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 				m.eventsViewer.StopFiltering()
 				return s, nil
 			}
-		} else {
+		} else if !m.eventsViewer.loading {
 			switch msg.String() {
 			case m.config.KeyBinds.Quit:
 				return s, tea.Quit
@@ -147,13 +149,16 @@ func (s *EventsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 
 	comp, cmd := m.eventsViewer.Update(msg)
 	m.eventsViewer = comp.(*EventsViewer)
+	if cmd != nil {
+		cmds = append(cmds, cmd)
+	}
 
 	// Refresh content when filter changes
 	if m.eventsViewer.IsFiltering() {
 		m.eventsViewer.RefreshContent(m.wrapEnabled)
 	}
 
-	return s, cmd
+	return s, tea.Batch(cmds...)
 }
 
 func (s *EventsState) View(m *model) string {

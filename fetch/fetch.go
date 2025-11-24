@@ -92,3 +92,32 @@ func FetchLogEvents(client *cloudwatchlogs.Client, logGroupName, logStreamName s
 	}
 	return events, nil
 }
+
+func FetchLogEventsStreaming(client *cloudwatchlogs.Client, logGroupName, logStreamName string, callback func([]types.OutputLogEvent) error) error {
+	var nextToken *string
+
+	for {
+		output, err := client.GetLogEvents(context.TODO(), &cloudwatchlogs.GetLogEventsInput{
+			LogGroupName:  &logGroupName,
+			LogStreamName: &logStreamName,
+			StartFromHead: aws.Bool(true),
+			NextToken:     nextToken,
+		})
+		if err != nil {
+			return err
+		}
+		if len(output.Events) > 0 {
+			if err := callback(output.Events); err != nil {
+				return err
+			}
+		}
+		if output.NextForwardToken == nil {
+			break
+		} else if nextToken == nil || *output.NextForwardToken == *nextToken {
+			nextToken = output.NextForwardToken
+		} else {
+			break
+		}
+	}
+	return nil
+}

@@ -20,6 +20,10 @@ type logEventMsg struct {
 	streamName string
 	events     []types.OutputLogEvent
 }
+type logEventPartialMsg struct {
+	events  []types.OutputLogEvent
+	nextCmd tea.Cmd
+}
 type tickMsg time.Time
 
 type errMsg struct{ err error }
@@ -66,6 +70,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case logEventMsg:
 		m.eventsViewer.SetEvents(msg.events)
 		m.currentStreamName = msg.streamName
+		spinnerCmd := m.eventsViewer.StartLoading()
+		return m, tea.Batch(spinnerCmd, NewLoadEventsStreamingAction(m.deps, msg.groupName, msg.streamName).Execute())
+	case logEventPartialMsg:
+		m.eventsViewer.AppendEvents(msg.events)
+		return m, msg.nextCmd
 	case tea.WindowSizeMsg:
 		h, v := m.config.Styles.DocStyle.GetFrameSize()
 		m.groupsList.SetSize(msg.Width-h, msg.Height-v)

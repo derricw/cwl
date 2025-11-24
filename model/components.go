@@ -7,6 +7,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -111,6 +112,8 @@ type EventsViewer struct {
 	filterInput textinput.Model
 	filtering   bool
 	filterValue string
+	loading     bool
+	spinner     spinner.Model
 }
 
 func NewEventsViewer() *EventsViewer {
@@ -118,14 +121,21 @@ func NewEventsViewer() *EventsViewer {
 	fi := textinput.New()
 	fi.Placeholder = "Filter events..."
 	fi.CharLimit = 100
+	s := spinner.New()
+	s.Spinner = spinner.Dot
 	return &EventsViewer{
 		Model:       vp,
 		filterInput: fi,
+		spinner:     s,
 	}
 }
 
 func (e *EventsViewer) Update(msg tea.Msg) (Component, tea.Cmd) {
 	var cmd tea.Cmd
+	if e.loading {
+		e.spinner, cmd = e.spinner.Update(msg)
+		return e, cmd
+	}
 	if e.filtering {
 		e.filterInput, cmd = e.filterInput.Update(msg)
 		e.filterValue = e.filterInput.Value()
@@ -136,6 +146,9 @@ func (e *EventsViewer) Update(msg tea.Msg) (Component, tea.Cmd) {
 }
 
 func (e *EventsViewer) View() string {
+	if e.loading {
+		return fmt.Sprintf("%s Loading events...", e.spinner.View())
+	}
 	if e.filtering {
 		return e.filterInput.View() + "\n" + e.Model.View()
 	}
@@ -153,6 +166,24 @@ func (e *EventsViewer) SetSize(width, height int) {
 
 func (e *EventsViewer) SetEvents(events []types.OutputLogEvent) {
 	e.rawEvents = events
+	e.loading = len(events) == 0
+	e.RefreshContent(false)
+}
+
+func (e *EventsViewer) StartLoading() tea.Cmd {
+	e.loading = true
+	e.spinner = spinner.New()
+	e.spinner.Spinner = spinner.Dot
+	return e.spinner.Tick
+}
+
+func (e *EventsViewer) IsLoading() bool {
+	return e.loading
+}
+
+func (e *EventsViewer) AppendEvents(events []types.OutputLogEvent) {
+	e.loading = false
+	e.rawEvents = append(e.rawEvents, events...)
 	e.RefreshContent(false)
 }
 
@@ -176,19 +207,19 @@ func (e *EventsViewer) IsFiltering() bool {
 }
 
 func (e *EventsViewer) RefreshContent(wrapEnabled bool) {
-	content := ""
+	var sb strings.Builder
 	for _, event := range e.rawEvents {
 		message := *event.Message
-		// Apply filter if active
 		if e.filterValue != "" && !strings.Contains(strings.ToLower(message), strings.ToLower(e.filterValue)) {
 			continue
 		}
 		if wrapEnabled && e.Width > 0 {
 			message = wrapText(message, e.Width)
 		}
-		content += fmt.Sprintf("%s\n", message)
+		sb.WriteString(message)
+		sb.WriteByte('\n')
 	}
-	e.SetContent(content)
+	e.SetContent(sb.String())
 }
 
 // wrapText wraps text to the specified width
