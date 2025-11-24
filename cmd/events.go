@@ -47,14 +47,15 @@ type Event struct {
 	color   *lipgloss.Color
 }
 
-// Render writes the event to stdout, taking into
+// Render writes the event to a writer, taking into
 // consideration the color and json output flag
-func (e *Event) Render() {
+func (e *Event) Render(w io.Writer) {
 	var buffer string
 	if jsonOutput {
 		jsonData, err := json.Marshal(e.cwEvent)
 		if err != nil {
-			fmt.Println("Error marshalling to JSON:", err)
+			fmt.Fprintln(w, "Error marshalling to JSON:", err)
+			return
 		}
 		buffer = string(jsonData)
 	} else {
@@ -62,10 +63,10 @@ func (e *Event) Render() {
 	}
 
 	if noColor || e.color == nil {
-		fmt.Println(buffer)
+		fmt.Fprintln(w, buffer)
 	} else {
 		style := lipgloss.NewStyle().Foreground(e.color)
-		fmt.Println(style.Render(buffer))
+		fmt.Fprintln(w, style.Render(buffer))
 	}
 }
 
@@ -78,8 +79,10 @@ func streamArnToName(streamArn string) (string, string) {
 
 // read events from a channel and render them as they come in
 func writeEvents(events <-chan Event) {
+	w := bufio.NewWriter(os.Stdout)
+	defer w.Flush()
 	for event := range events {
-		event.Render()
+		event.Render(w)
 	}
 }
 

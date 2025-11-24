@@ -28,16 +28,16 @@ func init() {
 	rootCmd.AddCommand(streamsCmd)
 }
 
-func writeStream(stream types.LogStream) {
+func writeStream(w io.Writer, stream types.LogStream) {
 	if jsonOutput {
 		jsonData, err := json.Marshal(stream)
 		if err != nil {
-			fmt.Println("Error marshaling to JSON:", err)
+			fmt.Fprintln(w, "Error marshaling to JSON:", err)
 			return
 		}
-		fmt.Println(string(jsonData))
+		fmt.Fprintln(w, string(jsonData))
 	} else {
-		fmt.Printf("%s\n", *stream.Arn)
+		fmt.Fprintf(w, "%s\n", *stream.Arn)
 	}
 }
 
@@ -65,6 +65,9 @@ var streamsCmd = &cobra.Command{
 
 		seen := map[string]struct{}{}
 
+		w := bufio.NewWriter(os.Stdout)
+		defer w.Flush()
+
 		scanner := bufio.NewScanner(readFrom)
 		for scanner.Scan() {
 			groupName := scanner.Text()
@@ -91,7 +94,7 @@ var streamsCmd = &cobra.Command{
 				for _, stream := range output.LogStreams {
 					if !follow || stream.LastIngestionTime == nil || *stream.LastIngestionTime > start {
 						if _, found := seen[*stream.LogStreamName]; !found {
-							writeStream(stream)
+							writeStream(w, stream)
 							seen[*stream.LogStreamName] = struct{}{}
 						}
 					}
