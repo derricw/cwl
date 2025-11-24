@@ -41,14 +41,14 @@ func init() {
 }
 
 // Event is an event that we can write to stdout
-// It contains a Cloudwatch event and a color
+// It contains a Cloudwatch event and a style
 type Event struct {
 	cwEvent types.OutputLogEvent
-	color   *lipgloss.Color
+	style   *lipgloss.Style
 }
 
 // Render writes the event to a writer, taking into
-// consideration the color and json output flag
+// consideration the style and json output flag
 func (e *Event) Render(w io.Writer) {
 	var buffer string
 	if jsonOutput {
@@ -62,11 +62,10 @@ func (e *Event) Render(w io.Writer) {
 		buffer = *e.cwEvent.Message
 	}
 
-	if noColor || e.color == nil {
+	if e.style == nil {
 		fmt.Fprintln(w, buffer)
 	} else {
-		style := lipgloss.NewStyle().Foreground(e.color)
-		fmt.Fprintln(w, style.Render(buffer))
+		fmt.Fprintln(w, e.style.Render(buffer))
 	}
 }
 
@@ -87,7 +86,7 @@ func writeEvents(events <-chan Event) {
 }
 
 // requestEvents fetches events from a log stream and sends them to the output channel.
-func requestEvents(client *cloudwatchlogs.Client, groupName, streamName string, outputChan chan Event, color *lipgloss.Color) error {
+func requestEvents(client *cloudwatchlogs.Client, groupName, streamName string, outputChan chan Event, style *lipgloss.Style) error {
 	var nextToken *string
 	var interval time.Duration
 	for {
@@ -106,7 +105,7 @@ func requestEvents(client *cloudwatchlogs.Client, groupName, streamName string, 
 		}
 		cancel()
 		for _, event := range output.Events {
-			outputChan <- Event{event, color}
+			outputChan <- Event{event, style}
 		}
 
 		if len(output.Events) > 0 {
@@ -176,26 +175,34 @@ Examples:
 			writeEvents(eventChannel)
 		}()
 
+		// Pre-allocate styles for each color
+		var styles []*lipgloss.Style
+		if !noColor {
+			rand.Shuffle(len(colors), func(i, j int) { colors[i], colors[j] = colors[j], colors[i] })
+			styles = make([]*lipgloss.Style, len(colors))
+			for i := range colors {
+				s := lipgloss.NewStyle().Foreground(colors[i])
+				styles[i] = &s
+			}
+		}
+
 		var wg sync.WaitGroup
 		scanner := bufio.NewScanner(readFrom)
 		streamIdx := 0
-		var color *lipgloss.Color
-		if !noColor { // shuffle colors
-			rand.Shuffle(len(colors), func(i, j int) { colors[i], colors[j] = colors[j], colors[i] })
-		}
 
 		// iterate over streams and request events for each
 		for scanner.Scan() {
 			streamArn := scanner.Text()
 			groupName, streamName := streamArnToName(streamArn)
-			if streamIdx != 0 {
-				color = &colors[streamIdx%len(colors)]
+			var style *lipgloss.Style
+			if streamIdx != 0 && len(styles) > 0 {
+				style = styles[streamIdx%len(styles)]
 			}
 			wg.Add(1)
-			go func(g, s string, ech chan Event, c *lipgloss.Color) {
+			go func(g, s string, ech chan Event, st *lipgloss.Style) {
 				defer wg.Done()
-				requestEvents(client, g, s, ech, c)
-			}(groupName, streamName, eventChannel, color)
+				requestEvents(client, g, s, ech, st)
+			}(groupName, streamName, eventChannel, style)
 			streamIdx++
 		}
 
