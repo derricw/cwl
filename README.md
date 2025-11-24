@@ -12,6 +12,16 @@ Using Go:
 ```bash
 go install github.com/derricw/cwl@latest
 ```
+
+Using the install script:
+```bash
+curl -sL https://api.github.com/repos/derricw/cwl/releases/latest | \
+  grep "browser_download_url.*$(uname -s | tr '[A-Z]' '[a-z]').*$(uname -m | sed 's/x86_64/amd64/').tar.gz" | \
+  cut -d '"' -f 4 | \
+  xargs curl -sL | \
+  tar xz && sudo mv cwl /usr/local/bin/
+```
+
 Or download the binary from the [releases](https://github.com/derricw/cwl/releases) page and place it in your PATH.
 
 ## Use
