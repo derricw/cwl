@@ -132,7 +132,7 @@ func (s *EventsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 				m.eventsViewer.StopFiltering()
 				return s, nil
 			}
-		} else if !m.eventsViewer.loading {
+		} else {
 			switch msg.String() {
 			case m.config.KeyBinds.Quit:
 				return s, tea.Quit
@@ -140,6 +140,9 @@ func (s *EventsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 				m.eventsViewer.SetContent("")
 				m.eventsViewer.lastEventTime = nil
 				return &StreamsState{}, nil
+			}
+			if !m.eventsViewer.loading {
+				switch msg.String() {
 			case m.config.KeyBinds.ScrollBottom:
 				m.eventsViewer.GotoBottom()
 				return s, nil
@@ -153,6 +156,7 @@ func (s *EventsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 			case m.config.KeyBinds.Filter:
 				m.eventsViewer.StartFiltering()
 				return s, nil
+				}
 			}
 		}
 	}

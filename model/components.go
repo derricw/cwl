@@ -184,11 +184,15 @@ func (e *EventsViewer) IsLoading() bool {
 
 func (e *EventsViewer) AppendEvents(events []types.OutputLogEvent) {
 	e.loading = false
+	wasAtBottom := e.AtBottom()
 	e.rawEvents = append(e.rawEvents, events...)
 	if len(events) > 0 {
 		e.lastEventTime = events[len(events)-1].Timestamp
 	}
 	e.RefreshContent(false)
+	if wasAtBottom {
+		e.GotoBottom()
+	}
 }
 
 func (e *EventsViewer) GetLastEventTime() *int64 {

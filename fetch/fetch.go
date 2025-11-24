@@ -101,6 +101,7 @@ func FetchLogEventsStreaming(client *cloudwatchlogs.Client, logGroupName, logStr
 			LogGroupName:  &logGroupName,
 			LogStreamName: &logStreamName,
 			StartFromHead: aws.Bool(true),
+			Limit:         aws.Int32(10000),
 			NextToken:     nextToken,
 		})
 		if err != nil {

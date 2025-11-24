@@ -1,6 +1,8 @@
 package model
 
 import (
+	"time"
+
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/derricw/cwl/fetch"
@@ -96,39 +98,35 @@ func NewLoadEventsStreamingAction(deps *Dependencies, groupName, streamName stri
 }
 
 func (a *LoadEventsStreamingAction) Execute() tea.Cmd {
-	return func() tea.Msg {
-		ch := make(chan tea.Msg, 10)
-		go func() {
-			defer close(ch)
-			err := fetch.FetchLogEventsStreaming(a.deps.Client, a.groupName, a.streamName, func(events []types.OutputLogEvent) error {
-				ch <- logEventPartialMsg{events: events}
-				return nil
-			})
-			if err != nil {
-				ch <- errMsg{err}
-			}
-		}()
-		
-		msg := <-ch
-		if partial, ok := msg.(logEventPartialMsg); ok {
-			partial.nextCmd = waitForBatch(ch)
-			return partial
+	ch := make(chan tea.Msg, 100)
+	go func() {
+		defer close(ch)
+		err := fetch.FetchLogEventsStreaming(a.deps.Client, a.groupName, a.streamName, func(events []types.OutputLogEvent) error {
+			ch <- logEventPartialMsg{events: events}
+			return nil
+		})
+		if err != nil {
+			ch <- errMsg{err}
 		}
-		return msg
-	}
+	}()
+	return waitForBatch(ch)
 }
 
 func waitForBatch(ch <-chan tea.Msg) tea.Cmd {
 	return func() tea.Msg {
-		msg, ok := <-ch
-		if !ok {
-			return nil
+		select {
+		case msg, ok := <-ch:
+			if !ok {
+				return nil
+			}
+			if partial, ok := msg.(logEventPartialMsg); ok {
+				partial.nextCmd = waitForBatch(ch)
+				return partial
+			}
+			return msg
+		case <-time.After(50 * time.Millisecond):
+			return waitForBatch(ch)()
 		}
-		if partial, ok := msg.(logEventPartialMsg); ok {
-			partial.nextCmd = waitForBatch(ch)
-			return partial
-		}
-		return msg
 	}
 }
 
