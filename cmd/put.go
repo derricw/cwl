@@ -9,7 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/derricw/cwl/arn"
 	"github.com/derricw/cwl/fetch"
+	"github.com/derricw/cwl/interfaces"
 	"github.com/spf13/cobra"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -21,7 +23,7 @@ func init() {
 	rootCmd.AddCommand(putCmd)
 }
 
-func ensureLogStreamExists(client *cloudwatchlogs.Client, logGroupName, logStreamName string) error {
+func ensureLogStreamExists(client interfaces.CloudWatchLogsClient, logGroupName, logStreamName string) error {
 	// Try to describe the log stream to check if it exists
 	output, err := client.DescribeLogStreams(context.TODO(), &cloudwatchlogs.DescribeLogStreamsInput{
 		LogGroupName:        aws.String(logGroupName),
@@ -64,8 +66,8 @@ var putCmd = &cobra.Command{
 		} else {
 			log.Fatal("Expected no more than 2 args")
 		}
-		groupName, streamName := streamArnToName(streamArn)
-		err = ensureLogStreamExists(client, groupName, streamName)
+		streamId := arn.ParseStreamArn(streamArn)
+		err = ensureLogStreamExists(client, streamId.GroupName, streamId.StreamName)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -74,8 +76,8 @@ var putCmd = &cobra.Command{
 		for scanner.Scan() {
 			event := scanner.Text()
 			input := &cloudwatchlogs.PutLogEventsInput{
-				LogGroupName:  aws.String(groupName),
-				LogStreamName: aws.String(streamName),
+				LogGroupName:  aws.String(streamId.GroupName),
+				LogStreamName: aws.String(streamId.StreamName),
 				LogEvents: []types.InputLogEvent{
 					// TODO: batching is supported up to 10000 events or 1MB
 					{

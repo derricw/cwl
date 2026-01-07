@@ -88,14 +88,29 @@ func (s *StreamsList) SetSize(width, height int) {
 }
 
 func (s *StreamsList) SetStreams(groupName string, streams []types.LogStream) {
+	if s == nil {
+		return
+	}
+	
 	s.groupName = groupName
 	s.Title = fmt.Sprintf("Log Streams: %s", groupName)
 
 	items := make([]list.Item, 0, len(streams))
 	for _, stream := range streams {
+		// Handle potential nil pointers
+		streamName := "Unknown"
+		if stream.LogStreamName != nil {
+			streamName = *stream.LogStreamName
+		}
+		
+		lastEvent := "No events"
+		if stream.LastEventTimestamp != nil {
+			lastEvent = time.Unix(0, *stream.LastEventTimestamp*1000000).Format("2006-01-02 15:04:05")
+		}
+		
 		items = append(items, item{
-			title: *stream.LogStreamName,
-			desc:  time.Unix(0, *stream.LastEventTimestamp*1000000).Format("2006-01-02 15:04:05"),
+			title: streamName,
+			desc:  lastEvent,
 		})
 	}
 	s.SetItems(items)

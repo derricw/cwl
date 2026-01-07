@@ -60,6 +60,8 @@ func (s *StreamsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 		// periodically check for new streams
 		if selected := m.groupsList.Model.SelectedItem(); selected != nil {
 			groupName := selected.(item).Title()
+			// Clear existing streams before refreshing
+			m.logStreams = nil
 			return s, tea.Batch(NewLoadStreamsAction(m.deps, groupName).Execute(), s.tickCmd())
 		}
 		return s, s.tickCmd()

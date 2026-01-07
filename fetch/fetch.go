@@ -8,9 +8,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
+	"github.com/derricw/cwl/interfaces"
 )
 
-func CreateClient(profileName string) (*cloudwatchlogs.Client, error) {
+func CreateClient(profileName string) (interfaces.CloudWatchLogsClient, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithSharedConfigProfile(profileName),
 	)
@@ -20,7 +21,7 @@ func CreateClient(profileName string) (*cloudwatchlogs.Client, error) {
 	return cloudwatchlogs.NewFromConfig(cfg), nil
 }
 
-func FetchLogGroups(client *cloudwatchlogs.Client) ([]types.LogGroup, error) {
+func FetchLogGroups(client interfaces.CloudWatchLogsClient) ([]types.LogGroup, error) {
 	groups := make([]types.LogGroup, 0)
 	var nextToken *string
 
@@ -39,7 +40,7 @@ func FetchLogGroups(client *cloudwatchlogs.Client) ([]types.LogGroup, error) {
 	return groups, nil
 }
 
-func FetchLogStreams(client *cloudwatchlogs.Client, logGroupName string, maxResults int) ([]types.LogStream, error) {
+func FetchLogStreams(client interfaces.CloudWatchLogsClient, logGroupName string, maxResults int) ([]types.LogStream, error) {
 	streams := make([]types.LogStream, 0)
 	var nextToken *string
 
@@ -69,7 +70,7 @@ func FetchLogStreams(client *cloudwatchlogs.Client, logGroupName string, maxResu
 
 var ErrMaxStreamsReached = fmt.Errorf("max streams reached")
 
-func FetchLogStreamsStreaming(client *cloudwatchlogs.Client, logGroupName string, callback func([]types.LogStream) error) error {
+func FetchLogStreamsStreaming(client interfaces.CloudWatchLogsClient, logGroupName string, callback func([]types.LogStream) error) error {
 	var nextToken *string
 
 	for {
@@ -97,7 +98,7 @@ func FetchLogStreamsStreaming(client *cloudwatchlogs.Client, logGroupName string
 	return nil
 }
 
-func FetchLogEvents(client *cloudwatchlogs.Client, logGroupName, logStreamName string) ([]types.OutputLogEvent, error) {
+func FetchLogEvents(client interfaces.CloudWatchLogsClient, logGroupName, logStreamName string) ([]types.OutputLogEvent, error) {
 	events := make([]types.OutputLogEvent, 0)
 	var nextToken *string
 
@@ -124,7 +125,7 @@ func FetchLogEvents(client *cloudwatchlogs.Client, logGroupName, logStreamName s
 	return events, nil
 }
 
-func FetchLogEventsStreaming(client *cloudwatchlogs.Client, logGroupName, logStreamName string, callback func([]types.OutputLogEvent) error) error {
+func FetchLogEventsStreaming(client interfaces.CloudWatchLogsClient, logGroupName, logStreamName string, callback func([]types.OutputLogEvent) error) error {
 	var nextToken *string
 
 	for {
@@ -154,7 +155,7 @@ func FetchLogEventsStreaming(client *cloudwatchlogs.Client, logGroupName, logStr
 	return nil
 }
 
-func FetchNewLogEvents(client *cloudwatchlogs.Client, logGroupName, logStreamName string, startTime *int64) ([]types.OutputLogEvent, error) {
+func FetchNewLogEvents(client interfaces.CloudWatchLogsClient, logGroupName, logStreamName string, startTime *int64) ([]types.OutputLogEvent, error) {
 	if startTime == nil {
 		return nil, nil
 	}

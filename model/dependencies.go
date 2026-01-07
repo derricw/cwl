@@ -1,14 +1,14 @@
 package model
 
 import (
-	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/derricw/cwl/fetch"
+	"github.com/derricw/cwl/interfaces"
 )
 
 // Dependencies holds all external dependencies
 type Dependencies struct {
 	Profile string
-	Client  *cloudwatchlogs.Client
+	Client  interfaces.CloudWatchLogsClient
 }
 
 // NewDependencies creates dependencies with AWS client

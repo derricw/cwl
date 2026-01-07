@@ -14,7 +14,9 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/derricw/cwl/arn"
 	"github.com/derricw/cwl/fetch"
+	"github.com/derricw/cwl/interfaces"
 	"github.com/spf13/cobra"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -69,13 +71,6 @@ func (e *Event) Render(w io.Writer) {
 	}
 }
 
-// extract log group and log stream name from a log stream ARN
-func streamArnToName(streamArn string) (string, string) {
-	streamArnTokens := strings.Split(streamArn, ":log-group:")
-	streamNameTokens := strings.Split(streamArnTokens[1], ":log-stream:")
-	return streamNameTokens[0], streamNameTokens[1]
-}
-
 // read events from a channel and render them as they come in
 func writeEvents(events <-chan Event) {
 	w := bufio.NewWriter(os.Stdout)
@@ -86,7 +81,7 @@ func writeEvents(events <-chan Event) {
 }
 
 // requestEvents fetches events from a log stream and sends them to the output channel.
-func requestEvents(client *cloudwatchlogs.Client, groupName, streamName string, outputChan chan Event, style *lipgloss.Style) error {
+func requestEvents(client interfaces.CloudWatchLogsClient, groupName, streamName string, outputChan chan Event, style *lipgloss.Style) error {
 	var nextToken *string
 	var interval time.Duration
 	for {
@@ -157,7 +152,7 @@ Examples:
 
 		if group != "" && stream != "" {
 			// passed in both a group and a stream
-			virtualArn := fmt.Sprintf("_:log-group:%s:log-stream:%s", group, stream)
+			virtualArn := arn.CreateVirtualArn(group, stream)
 			readFrom = strings.NewReader(virtualArn)
 		} else if len(args) == 0 {
 			// read streams from stdin
@@ -193,7 +188,7 @@ Examples:
 		// iterate over streams and request events for each
 		for scanner.Scan() {
 			streamArn := scanner.Text()
-			groupName, streamName := streamArnToName(streamArn)
+			streamId := arn.ParseStreamArn(streamArn)
 			var style *lipgloss.Style
 			if streamIdx != 0 && len(styles) > 0 {
 				style = styles[streamIdx%len(styles)]
@@ -202,7 +197,7 @@ Examples:
 			go func(g, s string, ech chan Event, st *lipgloss.Style) {
 				defer wg.Done()
 				requestEvents(client, g, s, ech, st)
-			}(groupName, streamName, eventChannel, style)
+			}(streamId.GroupName, streamId.StreamName, eventChannel, style)
 			streamIdx++
 		}
 
