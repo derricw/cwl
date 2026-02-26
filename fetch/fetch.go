@@ -98,6 +98,19 @@ func FetchLogStreamsStreaming(client interfaces.CloudWatchLogsClient, logGroupNa
 	return nil
 }
 
+func FetchLastLogEvents(client interfaces.CloudWatchLogsClient, logGroupName, logStreamName string, limit int32) ([]types.OutputLogEvent, error) {
+	output, err := client.GetLogEvents(context.TODO(), &cloudwatchlogs.GetLogEventsInput{
+		LogGroupName:  &logGroupName,
+		LogStreamName: &logStreamName,
+		StartFromHead: aws.Bool(false),
+		Limit:         aws.Int32(limit),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return output.Events, nil
+}
+
 func FetchLogEvents(client interfaces.CloudWatchLogsClient, logGroupName, logStreamName string) ([]types.OutputLogEvent, error) {
 	events := make([]types.OutputLogEvent, 0)
 	var nextToken *string

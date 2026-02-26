@@ -157,6 +157,28 @@ func waitForBatch(ch <-chan tea.Msg) tea.Cmd {
 	}
 }
 
+// LoadPreviewEventsAction fetches the last N events for the preview pane
+type LoadPreviewEventsAction struct {
+	deps       *Dependencies
+	groupName  string
+	streamName string
+	fetchID    int
+}
+
+func NewLoadPreviewEventsAction(deps *Dependencies, groupName, streamName string, fetchID int) *LoadPreviewEventsAction {
+	return &LoadPreviewEventsAction{deps: deps, groupName: groupName, streamName: streamName, fetchID: fetchID}
+}
+
+func (a *LoadPreviewEventsAction) Execute() tea.Cmd {
+	return func() tea.Msg {
+		events, err := fetch.FetchLastLogEvents(a.deps.Client, a.groupName, a.streamName, 20)
+		if err != nil {
+			return nil
+		}
+		return previewEventsMsg{streamName: a.streamName, events: events, fetchID: a.fetchID}
+	}
+}
+
 type PollNewEventsAction struct {
 	deps       *Dependencies
 	groupName  string

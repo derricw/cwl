@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // State interface for state machine
@@ -55,8 +56,30 @@ func (s *GroupsState) Exit(m *model) {
 // StreamsState handles log streams view
 type StreamsState struct{}
 
+// checkPreview fires a preview fetch if the selected stream changed
+func (s *StreamsState) checkPreview(m *model) tea.Cmd {
+	if groupItem := m.groupsList.Model.SelectedItem(); groupItem != nil {
+		if streamItem := m.streamsList.Model.SelectedItem(); streamItem != nil {
+			name := streamItem.(item).Title()
+			if name != m.previewStream {
+				m.previewStream = name
+				m.previewContent = ""
+				m.previewFetchID++
+				return NewLoadPreviewEventsAction(m.deps, groupItem.(item).Title(), name, m.previewFetchID).Execute()
+			}
+		}
+	}
+	return nil
+}
+
 func (s *StreamsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 	switch msg := msg.(type) {
+	case logStreamPartialMsg:
+		cmds := []tea.Cmd{msg.nextCmd}
+		if previewCmd := s.checkPreview(m); previewCmd != nil {
+			cmds = append(cmds, previewCmd)
+		}
+		return s, tea.Batch(cmds...)
 	case tickMsg:
 		// periodically check for new streams
 		if selected := m.groupsList.Model.SelectedItem(); selected != nil {
@@ -96,11 +119,32 @@ func (s *StreamsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 
 	comp, cmd := m.streamsList.Update(msg)
 	m.streamsList = comp.(*StreamsList)
+	previewCmd := s.checkPreview(m)
+	if previewCmd != nil {
+		if cmd != nil {
+			return s, tea.Batch(cmd, previewCmd)
+		}
+		return s, previewCmd
+	}
 	return s, cmd
 }
 
 func (s *StreamsState) View(m *model) string {
-	return m.config.Styles.DocStyle.Render(m.streamsList.View())
+	if m.previewStream == "" || m.termWidth < 100 {
+		return m.config.Styles.DocStyle.Render(m.streamsList.View())
+	}
+	listWidth := m.streamsList.Model.Width() / 2
+	previewWidth := m.streamsList.Model.Width() - listWidth - 4 // 2 for gap, 2 for border
+	listView := lipgloss.NewStyle().Width(listWidth).Render(m.streamsList.View())
+	previewHeader := m.config.Styles.HeaderStyle.Render("Preview: " + m.previewStream)
+	preview := lipgloss.NewStyle().
+		Width(previewWidth).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("8")).
+		Render(previewHeader + "\n" + m.previewContent)
+	return m.config.Styles.DocStyle.Render(
+		lipgloss.JoinHorizontal(lipgloss.Top, listView, "  ", preview),
+	)
 }
 
 func (s *StreamsState) Enter(m *model) tea.Cmd {
@@ -108,6 +152,8 @@ func (s *StreamsState) Enter(m *model) tea.Cmd {
 }
 
 func (s *StreamsState) Exit(m *model) {
+	m.previewStream = ""
+	m.previewContent = ""
 }
 
 // background ticker (used to refresh stream list)

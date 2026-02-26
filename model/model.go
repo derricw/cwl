@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
@@ -31,6 +32,11 @@ type logEventPartialMsg struct {
 	nextCmd tea.Cmd
 }
 type newEventsMsg []types.OutputLogEvent
+type previewEventsMsg struct {
+	streamName string
+	events     []types.OutputLogEvent
+	fetchID    int
+}
 type tickMsg time.Time
 
 type errMsg struct{ err error }
@@ -61,6 +67,10 @@ type model struct {
 	currentStreamName string
 	wrapEnabled       bool
 	streamFetchID     int
+	previewFetchID    int
+	previewStream     string
+	previewContent    string
+	termWidth         int
 }
 
 func (m model) Init() tea.Cmd {
@@ -83,7 +93,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.logStreams = append(m.logStreams, msg.streams...)
 			m.streamsList.SetStreams(msg.groupName, m.logStreams)
 		}
-		return m, msg.nextCmd
 	case logEventMsg:
 		m.eventsViewer.SetEvents(msg.events)
 		m.currentStreamName = msg.streamName
@@ -97,7 +106,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.eventsViewer.AppendEvents(msg)
 		}
 		return m, nil
+	case previewEventsMsg:
+		if msg.fetchID == m.previewFetchID {
+			m.previewContent = formatPreviewEvents(msg.events)
+		}
+		return m, nil
 	case tea.WindowSizeMsg:
+		m.termWidth = msg.Width
 		h, v := m.config.Styles.DocStyle.GetFrameSize()
 		m.groupsList.SetSize(msg.Width-h, msg.Height-v)
 		m.streamsList.SetSize(msg.Width-h, msg.Height-v)
@@ -133,4 +148,15 @@ func InitialModel(deps *Dependencies) model {
 		deps:         deps,
 		config:       DefaultConfig(),
 	}
+}
+
+func formatPreviewEvents(events []types.OutputLogEvent) string {
+	var sb strings.Builder
+	for _, e := range events {
+		if e.Message != nil {
+			sb.WriteString(strings.TrimRight(*e.Message, "\n"))
+			sb.WriteByte('\n')
+		}
+	}
+	return sb.String()
 }
