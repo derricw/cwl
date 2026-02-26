@@ -71,6 +71,7 @@ type model struct {
 	previewStream     string
 	previewContent    string
 	termWidth         int
+	previewEnabled    bool
 }
 
 func (m model) Init() tea.Cmd {
@@ -147,6 +148,7 @@ func InitialModel(deps *Dependencies) model {
 		state:        &GroupsState{},
 		deps:         deps,
 		config:       DefaultConfig(),
+		previewEnabled: true,
 	}
 }
 

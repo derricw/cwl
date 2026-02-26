@@ -114,6 +114,11 @@ func (s *StreamsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 			if !m.streamsList.Model.SettingFilter() && m.streamsList.Model.FilterState() != list.FilterApplied {
 				return &GroupsState{}, nil
 			}
+		case "p":
+			if !m.streamsList.Model.SettingFilter() {
+				m.previewEnabled = !m.previewEnabled
+				return s, nil
+			}
 		}
 	}
 
@@ -130,15 +135,17 @@ func (s *StreamsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 }
 
 func (s *StreamsState) View(m *model) string {
-	if m.previewStream == "" || m.termWidth < 100 {
+	if m.previewStream == "" || m.termWidth < 100 || !m.previewEnabled {
 		return m.config.Styles.DocStyle.Render(m.streamsList.View())
 	}
 	listWidth := m.streamsList.Model.Width() / 2
 	previewWidth := m.streamsList.Model.Width() - listWidth - 4 // 2 for gap, 2 for border
+	previewHeight := m.streamsList.Model.Height() - 2           // 2 for border
 	listView := lipgloss.NewStyle().Width(listWidth).Render(m.streamsList.View())
 	previewHeader := m.config.Styles.HeaderStyle.Render("Preview: " + m.previewStream)
 	preview := lipgloss.NewStyle().
 		Width(previewWidth).
+		Height(previewHeight).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("8")).
 		Render(previewHeader + "\n" + m.previewContent)

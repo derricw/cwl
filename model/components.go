@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -70,6 +71,11 @@ func NewStreamsList() *StreamsList {
 	delegate := list.NewDefaultDelegate()
 	delegate.ShowDescription = true
 	l := list.New([]list.Item{}, delegate, 0, 0)
+	l.AdditionalShortHelpKeys = func() []key.Binding {
+		return []key.Binding{
+			key.NewBinding(key.WithKeys("p"), key.WithHelp("p", "toggle preview")),
+		}
+	}
 	return &StreamsList{Model: l}
 }
 
