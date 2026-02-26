@@ -30,7 +30,8 @@ func (s *GroupsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 		case m.config.KeyBinds.Select:
 			if !m.groupsList.Model.SettingFilter() {
 				groupName := m.groupsList.Model.SelectedItem().(item).Title()
-				return &StreamsState{}, NewLoadStreamsAction(m.deps, groupName).Execute()
+				m.streamFetchID++
+				return &StreamsState{}, NewLoadStreamsAction(m.deps, groupName, m.streamFetchID).Execute()
 			}
 		}
 	}
@@ -62,7 +63,8 @@ func (s *StreamsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 			groupName := selected.(item).Title()
 			// Clear existing streams before refreshing
 			m.logStreams = nil
-			return s, tea.Batch(NewLoadStreamsAction(m.deps, groupName).Execute(), s.tickCmd())
+			m.streamFetchID++
+			return s, tea.Batch(NewLoadStreamsAction(m.deps, groupName, m.streamFetchID).Execute(), s.tickCmd())
 		}
 		return s, s.tickCmd()
 	case tea.KeyMsg:

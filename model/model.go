@@ -19,6 +19,7 @@ type logStreamPartialMsg struct {
 	groupName string
 	streams   []types.LogStream
 	nextCmd   tea.Cmd
+	fetchID   int
 }
 type logEventMsg struct {
 	groupName  string
@@ -59,6 +60,7 @@ type model struct {
 	config            *Config
 	currentStreamName string
 	wrapEnabled       bool
+	streamFetchID     int
 }
 
 func (m model) Init() tea.Cmd {
@@ -74,6 +76,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.streamsList.SetStreams(msg.groupName, msg.streams)
 		m.logStreams = msg.streams
 	case logStreamPartialMsg:
+		if msg.fetchID != m.streamFetchID {
+			return m, msg.nextCmd
+		}
 		if !m.streamsList.Model.SettingFilter() && m.streamsList.Model.FilterState() != list.FilterApplied {
 			m.logStreams = append(m.logStreams, msg.streams...)
 			m.streamsList.SetStreams(msg.groupName, m.logStreams)

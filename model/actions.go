@@ -36,12 +36,14 @@ func (a *LoadGroupsAction) Execute() tea.Cmd {
 type LoadStreamsAction struct {
 	deps      *Dependencies
 	groupName string
+	fetchID   int
 }
 
-func NewLoadStreamsAction(deps *Dependencies, groupName string) *LoadStreamsAction {
+func NewLoadStreamsAction(deps *Dependencies, groupName string, fetchID int) *LoadStreamsAction {
 	return &LoadStreamsAction{
 		deps:      deps,
 		groupName: groupName,
+		fetchID:   fetchID,
 	}
 }
 
@@ -52,7 +54,7 @@ func (a *LoadStreamsAction) Execute() tea.Cmd {
 		count := 0
 		err := fetch.FetchLogStreamsStreaming(a.deps.Client, a.groupName, func(streams []types.LogStream) error {
 			count += len(streams)
-			ch <- logStreamPartialMsg{groupName: a.groupName, streams: streams}
+			ch <- logStreamPartialMsg{groupName: a.groupName, streams: streams, fetchID: a.fetchID}
 			if count >= 20000 {
 				return fetch.ErrMaxStreamsReached
 			}
