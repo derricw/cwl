@@ -140,7 +140,8 @@ func (s *StreamsState) View(m *model) string {
 	}
 	listWidth := m.streamsList.Model.Width() / 2
 	previewWidth := m.streamsList.Model.Width() - listWidth - 4 // 2 for gap, 2 for border
-	previewHeight := m.streamsList.Model.Height() - 2           // 2 for border
+	_, v := m.config.Styles.DocStyle.GetFrameSize()
+	previewHeight := m.termHeight - v - 2 // v for doc margin, 2 for border
 	listView := lipgloss.NewStyle().Width(listWidth).Render(m.streamsList.View())
 	previewHeader := m.config.Styles.HeaderStyle.Render("Preview: " + m.previewStream)
 	preview := lipgloss.NewStyle().

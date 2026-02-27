@@ -71,6 +71,7 @@ type model struct {
 	previewStream     string
 	previewContent    string
 	termWidth         int
+	termHeight        int
 	previewEnabled    bool
 }
 
@@ -114,6 +115,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tea.WindowSizeMsg:
 		m.termWidth = msg.Width
+		m.termHeight = msg.Height
 		h, v := m.config.Styles.DocStyle.GetFrameSize()
 		m.groupsList.SetSize(msg.Width-h, msg.Height-v)
 		m.streamsList.SetSize(msg.Width-h, msg.Height-v)
