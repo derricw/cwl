@@ -132,6 +132,7 @@ type EventsViewer struct {
 	filtering     bool
 	filterValue   string
 	loading       bool
+	paginating    bool
 	spinner       spinner.Model
 	lastEventTime *int64
 }
@@ -151,18 +152,24 @@ func NewEventsViewer() *EventsViewer {
 }
 
 func (e *EventsViewer) Update(msg tea.Msg) (Component, tea.Cmd) {
-	var cmd tea.Cmd
-	if e.loading {
-		e.spinner, cmd = e.spinner.Update(msg)
-		return e, cmd
+	var cmds []tea.Cmd
+	if e.loading || e.paginating {
+		var spinCmd tea.Cmd
+		e.spinner, spinCmd = e.spinner.Update(msg)
+		if e.loading {
+			return e, spinCmd
+		}
+		cmds = append(cmds, spinCmd)
 	}
+	var cmd tea.Cmd
 	if e.filtering {
 		e.filterInput, cmd = e.filterInput.Update(msg)
 		e.filterValue = e.filterInput.Value()
 	} else {
 		e.Model, cmd = e.Model.Update(msg)
 	}
-	return e, cmd
+	cmds = append(cmds, cmd)
+	return e, tea.Batch(cmds...)
 }
 
 func (e *EventsViewer) View() string {
@@ -201,8 +208,21 @@ func (e *EventsViewer) IsLoading() bool {
 	return e.loading
 }
 
+func (e *EventsViewer) IsPaginating() bool {
+	return e.paginating
+}
+
+func (e *EventsViewer) StopPaginating() {
+	e.paginating = false
+}
+
+func (e *EventsViewer) SpinnerView() string {
+	return e.spinner.View()
+}
+
 func (e *EventsViewer) AppendEvents(events []types.OutputLogEvent) {
 	e.loading = false
+	e.paginating = true
 	wasAtBottom := e.AtBottom()
 	e.rawEvents = append(e.rawEvents, events...)
 	if len(events) > 0 {

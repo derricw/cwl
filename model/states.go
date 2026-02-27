@@ -245,6 +245,9 @@ func (s *EventsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 func (s *EventsState) View(m *model) string {
 	header := m.config.Styles.HeaderStyle.Render("Log Stream: " + m.currentStreamName)
 	footerText := fmt.Sprintf("%.0f%%", m.eventsViewer.ScrollPercent()*100)
+	if m.eventsViewer.IsPaginating() {
+		footerText += " " + m.eventsViewer.SpinnerView() + " loading events..."
+	}
 	if m.eventsViewer.IsFiltering() {
 		footerText += " | ESC/Enter to exit filter"
 	} else {

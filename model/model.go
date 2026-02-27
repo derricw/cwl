@@ -102,6 +102,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(spinnerCmd, NewLoadEventsStreamingAction(m.deps, msg.groupName, msg.streamName).Execute())
 	case logEventPartialMsg:
 		m.eventsViewer.AppendEvents(msg.events)
+		if msg.nextCmd == nil {
+			m.eventsViewer.StopPaginating()
+		}
 		return m, msg.nextCmd
 	case newEventsMsg:
 		if len(msg) > 0 {
