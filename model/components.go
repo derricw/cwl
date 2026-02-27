@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // Component interface for all UI components
@@ -133,6 +134,7 @@ type EventsViewer struct {
 	filterValue   string
 	loading       bool
 	paginating    bool
+	showTimestamps bool
 	spinner       spinner.Model
 	lastEventTime *int64
 }
@@ -228,7 +230,7 @@ func (e *EventsViewer) AppendEvents(events []types.OutputLogEvent) {
 	if len(events) > 0 {
 		e.lastEventTime = events[len(events)-1].Timestamp
 	}
-	e.RefreshContent(false)
+	e.refreshContent(false, e.showTimestamps)
 	if wasAtBottom {
 		e.GotoBottom()
 	}
@@ -258,11 +260,27 @@ func (e *EventsViewer) IsFiltering() bool {
 }
 
 func (e *EventsViewer) RefreshContent(wrapEnabled bool) {
+	e.refreshContent(wrapEnabled, false)
+}
+
+func (e *EventsViewer) RefreshContentWithTimestamps(wrapEnabled, showTimestamps bool) {
+	e.showTimestamps = showTimestamps
+	e.refreshContent(wrapEnabled, showTimestamps)
+}
+
+var timestampStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("141"))
+
+func (e *EventsViewer) refreshContent(wrapEnabled, showTimestamps bool) {
 	var sb strings.Builder
 	for _, event := range e.rawEvents {
 		message := *event.Message
 		if e.filterValue != "" && !strings.Contains(strings.ToLower(message), strings.ToLower(e.filterValue)) {
 			continue
+		}
+		if showTimestamps && event.Timestamp != nil {
+			ts := time.Unix(0, *event.Timestamp*int64(time.Millisecond)).Format("2006-01-02 15:04:05.000")
+			sb.WriteString(timestampStyle.Render(ts))
+			sb.WriteByte(' ')
 		}
 		if wrapEnabled && e.Width > 0 {
 			message = wrapText(message, e.Width)

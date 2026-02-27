@@ -66,6 +66,7 @@ type model struct {
 	config            *Config
 	currentStreamName string
 	wrapEnabled       bool
+	showTimestamps    bool
 	streamFetchID     int
 	previewFetchID    int
 	previewStream     string

@@ -195,7 +195,7 @@ func (s *EventsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 			case "esc":
 				m.eventsViewer.ClearFilter()
 				m.eventsViewer.StopFiltering()
-				m.eventsViewer.RefreshContent(m.wrapEnabled)
+				m.eventsViewer.RefreshContentWithTimestamps(m.wrapEnabled, m.showTimestamps)
 				return s, nil
 			case "enter":
 				m.eventsViewer.StopFiltering()
@@ -220,7 +220,11 @@ func (s *EventsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 				return s, nil
 			case m.config.KeyBinds.ToggleWrap:
 				m.wrapEnabled = !m.wrapEnabled
-				m.eventsViewer.RefreshContent(m.wrapEnabled)
+				m.eventsViewer.RefreshContentWithTimestamps(m.wrapEnabled, m.showTimestamps)
+				return s, nil
+			case "t":
+				m.showTimestamps = !m.showTimestamps
+				m.eventsViewer.RefreshContentWithTimestamps(m.wrapEnabled, m.showTimestamps)
 				return s, nil
 			case m.config.KeyBinds.Filter:
 				m.eventsViewer.StartFiltering()
@@ -238,7 +242,7 @@ func (s *EventsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 
 	// Refresh content when filter changes
 	if m.eventsViewer.IsFiltering() {
-		m.eventsViewer.RefreshContent(m.wrapEnabled)
+		m.eventsViewer.RefreshContentWithTimestamps(m.wrapEnabled, m.showTimestamps)
 	}
 
 	return s, tea.Batch(cmds...)
@@ -253,7 +257,7 @@ func (s *EventsState) View(m *model) string {
 	if m.eventsViewer.IsFiltering() {
 		footerText += " | ESC/Enter to exit filter"
 	} else {
-		footerText += " | / to filter"
+		footerText += " | / to filter | t timestamps"
 	}
 	footer := m.config.Styles.FooterStyle.Render(footerText)
 	content := m.eventsViewer.View()
