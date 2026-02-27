@@ -140,16 +140,18 @@ func (s *StreamsState) View(m *model) string {
 	}
 	listWidth := m.streamsList.Model.Width() / 2
 	previewWidth := m.streamsList.Model.Width() - listWidth - 4 // 2 for gap, 2 for border
-	_, v := m.config.Styles.DocStyle.GetFrameSize()
-	previewHeight := m.termHeight - v - 2 // v for doc margin, 2 for border
 	listView := lipgloss.NewStyle().Width(listWidth).Render(m.streamsList.View())
+	listHeight := lipgloss.Height(listView)
 	previewHeader := m.config.Styles.HeaderStyle.Render("Preview: " + m.previewStream)
-	preview := lipgloss.NewStyle().
+	innerContent := lipgloss.NewStyle().
 		Width(previewWidth).
-		Height(previewHeight).
+		Height(listHeight - 2).
+		MaxHeight(listHeight - 2).
+		Render(previewHeader + "\n" + m.previewContent)
+	preview := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("8")).
-		Render(previewHeader + "\n" + m.previewContent)
+		Render(innerContent)
 	return m.config.Styles.DocStyle.Render(
 		lipgloss.JoinHorizontal(lipgloss.Top, listView, "  ", preview),
 	)
