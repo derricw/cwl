@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/paginator"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -76,6 +77,7 @@ func NewStreamsList() *StreamsList {
 			key.NewBinding(key.WithKeys("p"), key.WithHelp("p", "toggle preview")),
 		}
 	}
+	l.Paginator.Type = paginator.Arabic
 	return &StreamsList{Model: l}
 }
 
