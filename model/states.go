@@ -257,7 +257,7 @@ func (s *EventsState) View(m *model) string {
 	if m.eventsViewer.IsFiltering() {
 		footerText += " | ESC/Enter to exit filter"
 	} else {
-		footerText += " | / to filter | t timestamps"
+		footerText += " | / to filter | t timestamps | w wrap"
 	}
 	footer := m.config.Styles.FooterStyle.Render(footerText)
 	content := m.eventsViewer.View()
