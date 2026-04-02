@@ -162,7 +162,9 @@ func formatPreviewEvents(events []types.OutputLogEvent) string {
 	var sb strings.Builder
 	for _, e := range events {
 		if e.Message != nil {
-			sb.WriteString(strings.TrimRight(*e.Message, "\n"))
+			msg := strings.ReplaceAll(*e.Message, "\r\n", "\n")
+			msg = strings.ReplaceAll(msg, "\r", "")
+			sb.WriteString(strings.TrimRight(msg, "\n"))
 			sb.WriteByte('\n')
 		}
 	}

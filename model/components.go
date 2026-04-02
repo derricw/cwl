@@ -273,7 +273,8 @@ var timestampStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("141"))
 func (e *EventsViewer) refreshContent(wrapEnabled, showTimestamps bool) {
 	var sb strings.Builder
 	for _, event := range e.rawEvents {
-		message := *event.Message
+		message := strings.ReplaceAll(*event.Message, "\r\n", "\n")
+		message = strings.ReplaceAll(message, "\r", "")
 		if e.filterValue != "" && !strings.Contains(strings.ToLower(message), strings.ToLower(e.filterValue)) {
 			continue
 		}
