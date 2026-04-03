@@ -31,6 +31,7 @@ var (
 	noColor            bool
 	group              string
 	stream             string
+	eventsPrefix       string
 )
 
 func init() {
@@ -39,6 +40,7 @@ func init() {
 	eventsCmd.PersistentFlags().BoolVarP(&noColor, "no-color", "c", false, "disable colored output")
 	eventsCmd.PersistentFlags().StringVar(&group, "group", "", "Log group name")
 	eventsCmd.PersistentFlags().StringVar(&stream, "stream", "", "Log stream name")
+	eventsCmd.PersistentFlags().StringVar(&eventsPrefix, "follow-prefix", "", "Follow all streams matching prefix (requires --group and -f)")
 	rootCmd.AddCommand(eventsCmd)
 }
 
@@ -125,10 +127,21 @@ var eventsCmd = &cobra.Command{
 	Use:   "events [stream arn]",
 	Short: "list events for log stream(s)",
 	Long: `Lists events for a log stream. Provide a stream ARN or use --group and --stream flags.
+Use --group with --follow-prefix and -f to follow all streams matching a prefix.
 Examples:
   cwl events arn:aws:logs:us-west-2:123456789012:log-group:/my/log/group:log-stream:my-stream
-  cwl events --group /my/log/group --stream my-stream`,
+  cwl events --group /my/log/group --stream my-stream
+  cwl events -f --group /my/log/group --follow-prefix "2025/04/"`,
 	Args: func(cmd *cobra.Command, args []string) error {
+		if eventsPrefix != "" {
+			if group == "" {
+				return fmt.Errorf("--follow-prefix requires --group")
+			}
+			if stream != "" || len(args) != 0 {
+				return fmt.Errorf("--follow-prefix cannot be used with --stream or ARN arguments")
+			}
+			return nil
+		}
 		if group != "" || stream != "" {
 			if group == "" || stream == "" {
 				return fmt.Errorf("both --group and --stream must be provided")
@@ -182,6 +195,53 @@ Examples:
 		}
 
 		var wg sync.WaitGroup
+
+		if eventsPrefix != "" {
+			// prefix mode: discover streams matching prefix and follow them
+			follow = true
+			seen := map[string]struct{}{}
+			streamIdx := 0
+			for {
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				var nextToken *string
+				for {
+					output, err := client.DescribeLogStreams(ctx, &cloudwatchlogs.DescribeLogStreamsInput{
+						LogGroupName:        &group,
+						LogStreamNamePrefix: &eventsPrefix,
+						OrderBy:             types.OrderByLogStreamName,
+						Limit:               aws.Int32(50),
+						NextToken:           nextToken,
+					})
+					if err != nil {
+						log.Fatal(err)
+					}
+					for _, s := range output.LogStreams {
+						name := *s.LogStreamName
+						if _, ok := seen[name]; !ok {
+							seen[name] = struct{}{}
+							var style *lipgloss.Style
+							if streamIdx != 0 && len(styles) > 0 {
+								style = styles[streamIdx%len(styles)]
+							}
+							streamIdx++
+							wg.Add(1)
+							go func(sn string, st *lipgloss.Style) {
+								defer wg.Done()
+								requestEvents(client, group, sn, eventChannel, st)
+							}(name, style)
+						}
+					}
+					if output.NextToken != nil {
+						nextToken = output.NextToken
+					} else {
+						break
+					}
+				}
+				cancel()
+				time.Sleep(10 * time.Second)
+			}
+		}
+
 		scanner := bufio.NewScanner(readFrom)
 		streamIdx := 0
 
