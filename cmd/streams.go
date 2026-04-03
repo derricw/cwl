@@ -103,7 +103,9 @@ var streamsCmd = &cobra.Command{
 					nextToken = output.NextToken
 				} else {
 					if follow {
+						w.Flush()
 						time.Sleep(time.Second * 10)
+						nextToken = nil
 					} else {
 						break
 					}
