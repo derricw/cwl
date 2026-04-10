@@ -81,6 +81,7 @@ type model struct {
 	previewEnabled    bool
 	initialGroup      string
 	currentGroupName  string
+	errorText         string
 }
 
 func (m model) Init() tea.Cmd {

@@ -3,6 +3,9 @@ package fetch
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/http"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -12,8 +15,18 @@ import (
 )
 
 func CreateClient(profileName string) (interfaces.CloudWatchLogsClient, error) {
+	httpClient := &http.Client{
+		Timeout: 5 * time.Second,
+		Transport: &http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout: 2 * time.Second,
+			}).DialContext,
+			TLSHandshakeTimeout: 2 * time.Second,
+		},
+	}
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithSharedConfigProfile(profileName),
+		config.WithHTTPClient(httpClient),
 	)
 	if err != nil {
 		return nil, err

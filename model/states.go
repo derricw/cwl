@@ -26,6 +26,9 @@ type GroupsState struct{}
 
 func (s *GroupsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 	switch msg := msg.(type) {
+	case errMsg:
+		m.groupsList.Model.Title = "Log Groups - " + m.config.Styles.ErrorStyle.Render("Error: "+msg.Error())
+		return s, nil
 	case tea.KeyMsg:
 		switch msg.String() {
 		case m.config.KeyBinds.Quit:
@@ -34,10 +37,12 @@ func (s *GroupsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 			return s, nil
 		case m.config.KeyBinds.Select:
 			if !m.groupsList.Model.SettingFilter() {
-				groupName := m.groupsList.Model.SelectedItem().(item).Title()
-				m.currentGroupName = groupName
-				m.streamFetchID++
-				return &StreamsState{}, NewLoadStreamsAction(m.deps, groupName, m.streamFetchID).Execute()
+				if selected := m.groupsList.Model.SelectedItem(); selected != nil {
+					groupName := selected.(item).Title()
+					m.currentGroupName = groupName
+					m.streamFetchID++
+					return &StreamsState{}, NewLoadStreamsAction(m.deps, groupName, m.streamFetchID).Execute()
+				}
 			}
 		}
 	}
@@ -77,6 +82,9 @@ func (s *StreamsState) checkPreview(m *model) tea.Cmd {
 
 func (s *StreamsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 	switch msg := msg.(type) {
+	case errMsg:
+		m.streamsList.Model.Title = "Log Streams - " + m.config.Styles.ErrorStyle.Render("Error: "+msg.Error())
+		return s, nil
 	case logStreamPartialMsg:
 		cmds := []tea.Cmd{msg.nextCmd}
 		if previewCmd := s.checkPreview(m); previewCmd != nil {
@@ -188,6 +196,9 @@ func (s *EventsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 	var cmds []tea.Cmd
 	
 	switch msg := msg.(type) {
+	case errMsg:
+		m.errorText = msg.Error()
+		return s, nil
 	case saveLogsMsg:
 		if msg.err != nil {
 			s.saveStatus = "Save failed: " + msg.err.Error()
@@ -279,10 +290,15 @@ func (s *EventsState) View(m *model) string {
 	}
 	footer := m.config.Styles.FooterStyle.Render(footerText)
 	content := m.eventsViewer.View()
+	if m.errorText != "" {
+		errLine := m.config.Styles.ErrorStyle.Render("Error: " + m.errorText)
+		return m.config.Styles.DocStyle.Render(header + "\n" + content + "\n" + footer + "\n" + errLine)
+	}
 	return m.config.Styles.DocStyle.Render(header + "\n" + content + "\n" + footer)
 }
 
 func (s *EventsState) Enter(m *model) tea.Cmd {
+	m.errorText = ""
 	s.groupName = m.currentGroupName
 	if streamItem := m.streamsList.Model.SelectedItem(); streamItem != nil {
 		s.streamName = streamItem.(item).Title()
