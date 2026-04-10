@@ -31,6 +31,7 @@ func (s *GroupsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 		case m.config.KeyBinds.Select:
 			if !m.groupsList.Model.SettingFilter() {
 				groupName := m.groupsList.Model.SelectedItem().(item).Title()
+				m.currentGroupName = groupName
 				m.streamFetchID++
 				return &StreamsState{}, NewLoadStreamsAction(m.deps, groupName, m.streamFetchID).Execute()
 			}
@@ -58,15 +59,13 @@ type StreamsState struct{}
 
 // checkPreview fires a preview fetch if the selected stream changed
 func (s *StreamsState) checkPreview(m *model) tea.Cmd {
-	if groupItem := m.groupsList.Model.SelectedItem(); groupItem != nil {
-		if streamItem := m.streamsList.Model.SelectedItem(); streamItem != nil {
-			name := streamItem.(item).Title()
-			if name != m.previewStream {
-				m.previewStream = name
-				m.previewContent = ""
-				m.previewFetchID++
-				return NewLoadPreviewEventsAction(m.deps, groupItem.(item).Title(), name, m.previewFetchID).Execute()
-			}
+	if streamItem := m.streamsList.Model.SelectedItem(); streamItem != nil {
+		name := streamItem.(item).Title()
+		if name != m.previewStream {
+			m.previewStream = name
+			m.previewContent = ""
+			m.previewFetchID++
+			return NewLoadPreviewEventsAction(m.deps, m.currentGroupName, name, m.previewFetchID).Execute()
 		}
 	}
 	return nil
@@ -82,14 +81,9 @@ func (s *StreamsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 		return s, tea.Batch(cmds...)
 	case tickMsg:
 		// periodically check for new streams
-		if selected := m.groupsList.Model.SelectedItem(); selected != nil {
-			groupName := selected.(item).Title()
-			// Clear existing streams before refreshing
-			m.logStreams = nil
-			m.streamFetchID++
-			return s, tea.Batch(NewLoadStreamsAction(m.deps, groupName, m.streamFetchID).Execute(), s.tickCmd())
-		}
-		return s, s.tickCmd()
+		m.logStreams = nil
+		m.streamFetchID++
+		return s, tea.Batch(NewLoadStreamsAction(m.deps, m.currentGroupName, m.streamFetchID).Execute(), s.tickCmd())
 	case tea.KeyMsg:
 		switch msg.String() {
 		case m.config.KeyBinds.Quit:
@@ -99,19 +93,22 @@ func (s *StreamsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 				m.streamsList.Model.ResetFilter()
 				return s, nil
 			}
+			if m.initialGroup != "" {
+				return s, tea.Quit
+			}
 			return &GroupsState{}, nil
 		case m.config.KeyBinds.Select:
 			if !m.streamsList.Model.SettingFilter() {
-				if groupItem := m.groupsList.Model.SelectedItem(); groupItem != nil {
-					if streamItem := m.streamsList.Model.SelectedItem(); streamItem != nil {
-						groupName := groupItem.(item).Title()
-						streamName := streamItem.(item).Title()
-						return &EventsState{}, NewLoadEventsAction(m.deps, groupName, streamName).Execute()
-					}
+				if streamItem := m.streamsList.Model.SelectedItem(); streamItem != nil {
+					streamName := streamItem.(item).Title()
+					return &EventsState{}, NewLoadEventsAction(m.deps, m.currentGroupName, streamName).Execute()
 				}
 			}
 		case m.config.KeyBinds.Back:
 			if !m.streamsList.Model.SettingFilter() && m.streamsList.Model.FilterState() != list.FilterApplied {
+				if m.initialGroup != "" {
+					return s, tea.Quit
+				}
 				return &GroupsState{}, nil
 			}
 		case "p":
@@ -268,11 +265,9 @@ func (s *EventsState) View(m *model) string {
 }
 
 func (s *EventsState) Enter(m *model) tea.Cmd {
-	if groupItem := m.groupsList.Model.SelectedItem(); groupItem != nil {
-		if streamItem := m.streamsList.Model.SelectedItem(); streamItem != nil {
-			s.groupName = groupItem.(item).Title()
-			s.streamName = streamItem.(item).Title()
-		}
+	s.groupName = m.currentGroupName
+	if streamItem := m.streamsList.Model.SelectedItem(); streamItem != nil {
+		s.streamName = streamItem.(item).Title()
 	}
 	return s.tickCmd()
 }

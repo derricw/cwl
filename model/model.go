@@ -74,9 +74,14 @@ type model struct {
 	termWidth         int
 	termHeight        int
 	previewEnabled    bool
+	initialGroup      string
+	currentGroupName  string
 }
 
 func (m model) Init() tea.Cmd {
+	if m.initialGroup != "" {
+		return NewLoadStreamsAction(m.deps, m.initialGroup, m.streamFetchID).Execute()
+	}
 	return NewLoadGroupsAction(m.deps).Execute()
 }
 
@@ -146,16 +151,23 @@ func (m model) View() string {
 }
 
 // initialize model data
-func InitialModel(deps *Dependencies) model {
-	return model{
-		groupsList:   NewGroupsList(),
-		streamsList:  NewStreamsList(),
-		eventsViewer: NewEventsViewer(),
-		state:        &GroupsState{},
-		deps:         deps,
-		config:       DefaultConfig(),
+func InitialModel(deps *Dependencies, group string) model {
+	m := model{
+		groupsList:     NewGroupsList(),
+		streamsList:    NewStreamsList(),
+		eventsViewer:   NewEventsViewer(),
+		state:          &GroupsState{},
+		deps:           deps,
+		config:         DefaultConfig(),
 		previewEnabled: true,
 	}
+	if group != "" {
+		m.initialGroup = group
+		m.currentGroupName = group
+		m.state = &StreamsState{}
+		m.streamFetchID = 1
+	}
+	return m
 }
 
 func formatPreviewEvents(events []types.OutputLogEvent) string {
