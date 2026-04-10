@@ -2,8 +2,12 @@ package model
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -177,12 +181,20 @@ func (s *StreamsState) tickCmd() tea.Cmd {
 type EventsState struct {
 	groupName  string
 	streamName string
+	saveStatus string
 }
 
 func (s *EventsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 	var cmds []tea.Cmd
 	
 	switch msg := msg.(type) {
+	case saveLogsMsg:
+		if msg.err != nil {
+			s.saveStatus = "Save failed: " + msg.err.Error()
+		} else {
+			s.saveStatus = "Saved to " + msg.path
+		}
+		return s, nil
 	case tickMsg:
 		if !m.eventsViewer.IsLoading() {
 			lastTime := m.eventsViewer.GetLastEventTime()
@@ -229,6 +241,9 @@ func (s *EventsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 			case m.config.KeyBinds.Filter:
 				m.eventsViewer.StartFiltering()
 				return s, nil
+			case m.config.KeyBinds.SaveLogs:
+				s.saveStatus = "Saving..."
+				return s, saveLogsCmd(m.eventsViewer.rawEvents)
 				}
 			}
 		}
@@ -257,7 +272,10 @@ func (s *EventsState) View(m *model) string {
 	if m.eventsViewer.IsFiltering() {
 		footerText += " | ESC/Enter to exit filter"
 	} else {
-		footerText += " | / to filter | t timestamps | w wrap"
+		footerText += " | / to filter | t timestamps | w wrap | s save"
+	}
+	if s.saveStatus != "" {
+		footerText += " | " + s.saveStatus
 	}
 	footer := m.config.Styles.FooterStyle.Render(footerText)
 	content := m.eventsViewer.View()
@@ -279,4 +297,30 @@ func (s *EventsState) tickCmd() tea.Cmd {
 }
 
 func (s *EventsState) Exit(m *model) {
+}
+
+func saveLogsCmd(events []types.OutputLogEvent) tea.Cmd {
+	return func() tea.Msg {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return saveLogsMsg{err: err}
+		}
+		dir := filepath.Join(home, "Downloads", "cwl", "logs")
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return saveLogsMsg{err: err}
+		}
+		filename := time.Now().Format("2006-01-02T15-04-05") + ".log"
+		path := filepath.Join(dir, filename)
+		var sb strings.Builder
+		for _, e := range events {
+			if e.Message != nil {
+				sb.WriteString(strings.TrimRight(*e.Message, "\r\n"))
+				sb.WriteByte('\n')
+			}
+		}
+		if err := os.WriteFile(path, []byte(sb.String()), 0o644); err != nil {
+			return saveLogsMsg{err: err}
+		}
+		return saveLogsMsg{path: path}
+	}
 }

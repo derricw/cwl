@@ -41,6 +41,11 @@ type tickMsg time.Time
 
 type errMsg struct{ err error }
 
+type saveLogsMsg struct {
+	path string
+	err  error
+}
+
 // For messages that contain errors it's often handy to also implement the
 // error interface on the message.
 func (e errMsg) Error() string { return e.err.Error() }
