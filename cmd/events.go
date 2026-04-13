@@ -32,6 +32,8 @@ var (
 	group              string
 	stream             string
 	eventsPrefix       string
+	maxEvents          int
+	maxEmptyPages      = 5 // consecutive empty pages before stopping in non-follow mode
 )
 
 func init() {
@@ -41,6 +43,7 @@ func init() {
 	eventsCmd.PersistentFlags().StringVar(&group, "group", "", "Log group name")
 	eventsCmd.PersistentFlags().StringVar(&stream, "stream", "", "Log stream name")
 	eventsCmd.PersistentFlags().StringVar(&eventsPrefix, "follow-prefix", "", "Follow all streams matching prefix (requires --group and -f)")
+	eventsCmd.PersistentFlags().IntVar(&maxEvents, "limit", 0, "Maximum number of events to fetch (0 = unlimited)")
 	rootCmd.AddCommand(eventsCmd)
 }
 
@@ -79,13 +82,18 @@ func writeEvents(events <-chan Event) {
 	defer w.Flush()
 	for event := range events {
 		event.Render(w)
+		if len(events) == 0 {
+			w.Flush()
+		}
 	}
 }
 
 // requestEvents fetches events from a log stream and sends them to the output channel.
-func requestEvents(client interfaces.CloudWatchLogsClient, groupName, streamName string, outputChan chan Event, style *lipgloss.Style) error {
+func requestEvents(client interfaces.CloudWatchLogsClient, groupName, streamName string, outputChan chan Event, style *lipgloss.Style, limit int) error {
 	var nextToken *string
 	var interval time.Duration
+	totalSent := 0
+	emptyPages := 0
 	for {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		input := &cloudwatchlogs.GetLogEventsInput{
@@ -96,19 +104,25 @@ func requestEvents(client interfaces.CloudWatchLogsClient, groupName, streamName
 			Limit:         aws.Int32(10000), // 10,000 is max allowed by AWS
 		}
 		output, err := client.GetLogEvents(ctx, input)
+		cancel()
 		if err != nil {
-			cancel()
 			return err
 		}
-		cancel()
+
 		for _, event := range output.Events {
 			outputChan <- Event{event, style}
+			totalSent++
+			if limit > 0 && totalSent >= limit {
+				return nil
+			}
 		}
 
 		if len(output.Events) > 0 {
 			interval = minPollingInterval
+			emptyPages = 0
 		} else {
 			interval = min(maxPollingInterval, interval*2)
+			emptyPages++
 		}
 
 		if nextToken != nil && *nextToken == *output.NextForwardToken {
@@ -117,6 +131,9 @@ func requestEvents(client interfaces.CloudWatchLogsClient, groupName, streamName
 			} else {
 				break
 			}
+		} else if len(output.Events) == 0 && !follow && emptyPages >= maxEmptyPages {
+			// Token keeps changing but no events — stop to avoid infinite loop on sparse streams
+			break
 		}
 		nextToken = output.NextForwardToken
 	}
@@ -227,7 +244,7 @@ Examples:
 							wg.Add(1)
 							go func(sn string, st *lipgloss.Style) {
 								defer wg.Done()
-								requestEvents(client, group, sn, eventChannel, st)
+								requestEvents(client, group, sn, eventChannel, st, maxEvents)
 							}(name, style)
 						}
 					}
@@ -256,7 +273,7 @@ Examples:
 			wg.Add(1)
 			go func(g, s string, ech chan Event, st *lipgloss.Style) {
 				defer wg.Done()
-				requestEvents(client, g, s, ech, st)
+				requestEvents(client, g, s, ech, st, maxEvents)
 			}(streamId.GroupName, streamId.StreamName, eventChannel, style)
 			streamIdx++
 		}

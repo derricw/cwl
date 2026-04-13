@@ -146,3 +146,27 @@ func TestSaveLogsCmdEmptyEvents(t *testing.T) {
 		t.Fatalf("expected empty file, got %q", string(content))
 	}
 }
+
+func TestGroupSelectClearsStreams(t *testing.T) {
+	m := InitialModel(testDeps(), "")
+	m.Log = io.Discard
+
+	// Simulate having stale streams from a previous group
+	m.logStreams = []types.LogStream{
+		{LogStreamName: aws.String("old-stream")},
+	}
+
+	// Set up a group in the list so selection works
+	m.groupsList.SetGroups([]types.LogGroup{
+		{LogGroupName: aws.String("/aws/group1"), LogGroupArn: aws.String("arn1")},
+	})
+
+	// Select the group (press enter)
+	msg := tea.KeyMsg{Type: tea.KeyEnter}
+	newModel, _ := m.Update(msg)
+	updated := newModel.(model)
+
+	if updated.logStreams != nil {
+		t.Fatalf("expected logStreams to be nil after selecting new group, got %d items", len(updated.logStreams))
+	}
+}

@@ -40,6 +40,7 @@ func (s *GroupsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 				if selected := m.groupsList.Model.SelectedItem(); selected != nil {
 					groupName := selected.(item).Title()
 					m.currentGroupName = groupName
+					m.logStreams = nil
 					m.streamFetchID++
 					return &StreamsState{}, NewLoadStreamsAction(m.deps, groupName, m.streamFetchID).Execute()
 				}
