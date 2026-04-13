@@ -13,10 +13,12 @@ import (
 var jsonOutput bool
 var awsProfile string
 var logGroup string
+var streamFilter string
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&awsProfile, "profile", "p", "", "AWS Profile to use")
 	rootCmd.Flags().StringVarP(&logGroup, "group", "g", "", "Log group to open directly into streams view")
+	rootCmd.Flags().StringVarP(&streamFilter, "stream-filter", "s", "", "Filter streams by name (requires -g)")
 }
 
 var rootCmd = &cobra.Command{
@@ -38,7 +40,7 @@ var rootCmd = &cobra.Command{
 			fmt.Printf("Error creating dependencies: %v", err)
 			os.Exit(1)
 		}
-		m := model.InitialModel(deps, logGroup)
+		m := model.InitialModel(deps, logGroup, streamFilter)
 		m.Log = log
 		p := tea.NewProgram(m, tea.WithAltScreen())
 		if _, err := p.Run(); err != nil {

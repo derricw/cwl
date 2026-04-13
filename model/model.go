@@ -81,6 +81,7 @@ type model struct {
 	previewEnabled    bool
 	initialGroup      string
 	currentGroupName  string
+	streamFilter      string
 	errorText         string
 }
 
@@ -103,9 +104,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.fetchID != m.streamFetchID {
 			return m, msg.nextCmd
 		}
-		if !m.streamsList.Model.SettingFilter() && m.streamsList.Model.FilterState() != list.FilterApplied {
+		if !m.streamsList.Model.SettingFilter() && (m.streamsList.Model.FilterState() != list.FilterApplied || m.streamFilter != "") {
 			m.logStreams = append(m.logStreams, msg.streams...)
 			m.streamsList.SetStreams(msg.groupName, m.logStreams)
+			if m.streamFilter != "" {
+				m.streamsList.Model.SetFilterText(m.streamFilter)
+			}
 		}
 	case logEventMsg:
 		m.eventsViewer.SetEvents(msg.events)
@@ -157,7 +161,7 @@ func (m model) View() string {
 }
 
 // initialize model data
-func InitialModel(deps *Dependencies, group string) model {
+func InitialModel(deps *Dependencies, group, streamFilter string) model {
 	m := model{
 		groupsList:     NewGroupsList(),
 		streamsList:    NewStreamsList(),
@@ -170,6 +174,7 @@ func InitialModel(deps *Dependencies, group string) model {
 	if group != "" {
 		m.initialGroup = group
 		m.currentGroupName = group
+		m.streamFilter = streamFilter
 		m.state = &StreamsState{}
 		m.streamFetchID = 1
 	}

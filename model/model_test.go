@@ -18,7 +18,7 @@ func testDeps() *Dependencies {
 }
 
 func TestInitialModelDefaultState(t *testing.T) {
-	m := InitialModel(testDeps(), "")
+	m := InitialModel(testDeps(), "", "")
 	if _, ok := m.state.(*GroupsState); !ok {
 		t.Fatalf("expected GroupsState, got %T", m.state)
 	}
@@ -28,7 +28,7 @@ func TestInitialModelDefaultState(t *testing.T) {
 }
 
 func TestInitialModelWithGroup(t *testing.T) {
-	m := InitialModel(testDeps(), "/aws/batch/job")
+	m := InitialModel(testDeps(), "/aws/batch/job", "")
 	if _, ok := m.state.(*StreamsState); !ok {
 		t.Fatalf("expected StreamsState, got %T", m.state)
 	}
@@ -44,7 +44,7 @@ func TestInitialModelWithGroup(t *testing.T) {
 }
 
 func TestGroupsStateErrorUpdatesTitle(t *testing.T) {
-	m := InitialModel(testDeps(), "")
+	m := InitialModel(testDeps(), "", "")
 	m.Log = io.Discard
 	msg := errMsg{err: errors.New("access denied")}
 	newModel, _ := m.Update(msg)
@@ -55,7 +55,7 @@ func TestGroupsStateErrorUpdatesTitle(t *testing.T) {
 }
 
 func TestStreamsStateErrorUpdatesTitle(t *testing.T) {
-	m := InitialModel(testDeps(), "/aws/test")
+	m := InitialModel(testDeps(), "/aws/test", "")
 	m.Log = io.Discard
 	msg := errMsg{err: errors.New("throttled")}
 	newModel, _ := m.Update(msg)
@@ -66,7 +66,7 @@ func TestStreamsStateErrorUpdatesTitle(t *testing.T) {
 }
 
 func TestEventsStateErrorSetsErrorText(t *testing.T) {
-	m := InitialModel(testDeps(), "")
+	m := InitialModel(testDeps(), "", "")
 	m.Log = io.Discard
 	m.state = &EventsState{}
 	msg := errMsg{err: errors.New("connection refused")}
@@ -78,7 +78,7 @@ func TestEventsStateErrorSetsErrorText(t *testing.T) {
 }
 
 func TestGroupsStateSelectEmptyList(t *testing.T) {
-	m := InitialModel(testDeps(), "")
+	m := InitialModel(testDeps(), "", "")
 	m.Log = io.Discard
 	// Send enter key on empty list — should not panic
 	msg := tea.KeyMsg{Type: tea.KeyEnter}
@@ -148,7 +148,7 @@ func TestSaveLogsCmdEmptyEvents(t *testing.T) {
 }
 
 func TestGroupSelectClearsStreams(t *testing.T) {
-	m := InitialModel(testDeps(), "")
+	m := InitialModel(testDeps(), "", "")
 	m.Log = io.Discard
 
 	// Simulate having stale streams from a previous group
