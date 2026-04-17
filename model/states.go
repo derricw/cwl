@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/derricw/cwl/fetch"
 )
 
 // State interface for state machine
@@ -86,6 +87,15 @@ func (s *StreamsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 	case errMsg:
 		m.streamsList.Model.Title = "Log Streams - " + m.config.Styles.ErrorStyle.Render("Error: "+msg.Error())
 		return s, nil
+	case saveLogsMsg:
+		m.streamSaving = false
+		if msg.err != nil {
+			m.streamSaveStatus = "Save failed: " + msg.err.Error()
+		} else {
+			m.streamSaveStatus = "Saved to " + msg.path
+		}
+		cmd := m.streamsList.Model.NewStatusMessage(m.config.Styles.FooterStyle.Render(m.streamSaveStatus))
+		return s, cmd
 	case logStreamPartialMsg:
 		cmds := []tea.Cmd{msg.nextCmd}
 		if previewCmd := s.checkPreview(m); previewCmd != nil {
@@ -128,6 +138,16 @@ func (s *StreamsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 			if !m.streamsList.Model.SettingFilter() {
 				m.previewEnabled = !m.previewEnabled
 				return s, nil
+			}
+		case m.config.KeyBinds.SaveLogs:
+			if !m.streamsList.Model.SettingFilter() && !m.streamSaving {
+				if streamItem := m.streamsList.Model.SelectedItem(); streamItem != nil {
+					streamName := streamItem.(item).Title()
+					m.streamSaving = true
+					m.streamSaveStatus = "Saving " + streamName + "..."
+					statusCmd := m.streamsList.Model.NewStatusMessage(m.config.Styles.FooterStyle.Render(m.streamSaveStatus))
+					return s, tea.Batch(statusCmd, saveStreamCmd(m.deps, m.currentGroupName, streamName))
+				}
 			}
 		}
 	}
@@ -336,6 +356,41 @@ func saveLogsCmd(events []types.OutputLogEvent) tea.Cmd {
 			}
 		}
 		if err := os.WriteFile(path, []byte(sb.String()), 0o644); err != nil {
+			return saveLogsMsg{err: err}
+		}
+		return saveLogsMsg{path: path}
+	}
+}
+
+func saveStreamCmd(deps *Dependencies, groupName, streamName string) tea.Cmd {
+	return func() tea.Msg {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return saveLogsMsg{err: err}
+		}
+		dir := filepath.Join(home, "Downloads", "cwl", "logs")
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return saveLogsMsg{err: err}
+		}
+		filename := time.Now().Format("2006-01-02T15-04-05") + ".log"
+		path := filepath.Join(dir, filename)
+		f, err := os.Create(path)
+		if err != nil {
+			return saveLogsMsg{err: err}
+		}
+		defer f.Close()
+		err = fetch.FetchLogEventsStreaming(deps.Client, groupName, streamName, func(events []types.OutputLogEvent) error {
+			for _, e := range events {
+				if e.Message != nil {
+					msg := strings.TrimRight(*e.Message, "\r\n")
+					if _, err := f.WriteString(msg + "\n"); err != nil {
+						return err
+					}
+				}
+			}
+			return nil
+		})
+		if err != nil {
 			return saveLogsMsg{err: err}
 		}
 		return saveLogsMsg{path: path}

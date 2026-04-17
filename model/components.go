@@ -76,6 +76,7 @@ func NewStreamsList() *StreamsList {
 	l.AdditionalShortHelpKeys = func() []key.Binding {
 		return []key.Binding{
 			key.NewBinding(key.WithKeys("p"), key.WithHelp("p", "toggle preview")),
+			key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "save stream")),
 		}
 	}
 	l.Paginator.Type = paginator.Arabic

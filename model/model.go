@@ -83,6 +83,8 @@ type model struct {
 	currentGroupName  string
 	streamFilter      string
 	errorText         string
+	streamSaveStatus  string
+	streamSaving      bool
 }
 
 func (m model) Init() tea.Cmd {
@@ -109,6 +111,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.streamsList.SetStreams(msg.groupName, m.logStreams)
 			if m.streamFilter != "" {
 				m.streamsList.Model.SetFilterText(m.streamFilter)
+				m.streamFilter = ""
 			}
 		}
 	case logEventMsg:
