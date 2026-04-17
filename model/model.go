@@ -172,6 +172,7 @@ func (m model) View() string {
 // initialize model data
 func InitialModel(deps *Dependencies, group, streamFilter string) model {
 	m := model{
+		Log:            io.Discard,
 		groupsList:     NewGroupsList(),
 		streamsList:    NewStreamsList(),
 		eventsViewer:   NewEventsViewer(),

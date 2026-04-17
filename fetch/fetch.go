@@ -135,6 +135,8 @@ func FetchLastLogEvents(client interfaces.CloudWatchLogsClient, logGroupName, lo
 	return output.Events, nil
 }
 
+// FetchLogEvents retrieves all events for a stream. Terminates when the
+// pagination token stops changing (same token = end of stream).
 func FetchLogEvents(client interfaces.CloudWatchLogsClient, logGroupName, logStreamName string) ([]types.OutputLogEvent, error) {
 	events := make([]types.OutputLogEvent, 0)
 	var nextToken *string
@@ -144,24 +146,22 @@ func FetchLogEvents(client interfaces.CloudWatchLogsClient, logGroupName, logStr
 			LogGroupName:  &logGroupName,
 			LogStreamName: &logStreamName,
 			StartFromHead: aws.Bool(true),
-			//Limit # of events?
-			NextToken: nextToken,
+			NextToken:     nextToken,
 		})
 		if err != nil {
 			return nil, err
 		}
 		events = append(events, output.Events...)
-		if output.NextForwardToken == nil {
-			break
-		} else if nextToken == nil || *output.NextForwardToken == *nextToken {
-			nextToken = output.NextForwardToken
-		} else {
+		if nextToken != nil && output.NextForwardToken != nil && *nextToken == *output.NextForwardToken {
 			break
 		}
+		nextToken = output.NextForwardToken
 	}
 	return events, nil
 }
 
+// FetchLogEventsStreaming retrieves all events for a stream, delivering batches
+// via callback. Terminates when the pagination token stops changing.
 func FetchLogEventsStreaming(client interfaces.CloudWatchLogsClient, logGroupName, logStreamName string, callback func([]types.OutputLogEvent) error) error {
 	var nextToken *string
 
@@ -181,13 +181,10 @@ func FetchLogEventsStreaming(client interfaces.CloudWatchLogsClient, logGroupNam
 				return err
 			}
 		}
-		if output.NextForwardToken == nil {
-			break
-		} else if nextToken == nil || *output.NextForwardToken == *nextToken {
-			nextToken = output.NextForwardToken
-		} else {
+		if nextToken != nil && output.NextForwardToken != nil && *nextToken == *output.NextForwardToken {
 			break
 		}
+		nextToken = output.NextForwardToken
 	}
 	return nil
 }

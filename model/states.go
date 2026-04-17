@@ -258,29 +258,37 @@ func (s *EventsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 				m.eventsViewer.SetContent("")
 				m.eventsViewer.lastEventTime = nil
 				return &StreamsState{}, nil
-			}
-			if !m.eventsViewer.loading {
-				switch msg.String() {
 			case m.config.KeyBinds.ScrollBottom, "G":
-				m.eventsViewer.GotoBottom()
-				return s, nil
+				if !m.eventsViewer.loading {
+					m.eventsViewer.GotoBottom()
+					return s, nil
+				}
 			case m.config.KeyBinds.ScrollTop:
-				m.eventsViewer.GotoTop()
-				return s, nil
+				if !m.eventsViewer.loading {
+					m.eventsViewer.GotoTop()
+					return s, nil
+				}
 			case m.config.KeyBinds.ToggleWrap:
-				m.wrapEnabled = !m.wrapEnabled
-				m.eventsViewer.RefreshContentWithTimestamps(m.wrapEnabled, m.showTimestamps)
-				return s, nil
+				if !m.eventsViewer.loading {
+					m.wrapEnabled = !m.wrapEnabled
+					m.eventsViewer.RefreshContentWithTimestamps(m.wrapEnabled, m.showTimestamps)
+					return s, nil
+				}
 			case "t":
-				m.showTimestamps = !m.showTimestamps
-				m.eventsViewer.RefreshContentWithTimestamps(m.wrapEnabled, m.showTimestamps)
-				return s, nil
+				if !m.eventsViewer.loading {
+					m.showTimestamps = !m.showTimestamps
+					m.eventsViewer.RefreshContentWithTimestamps(m.wrapEnabled, m.showTimestamps)
+					return s, nil
+				}
 			case m.config.KeyBinds.Filter:
-				m.eventsViewer.StartFiltering()
-				return s, nil
+				if !m.eventsViewer.loading {
+					m.eventsViewer.StartFiltering()
+					return s, nil
+				}
 			case m.config.KeyBinds.SaveLogs:
-				s.saveStatus = "Saving..."
-				return s, saveLogsCmd(m.eventsViewer.rawEvents)
+				if !m.eventsViewer.loading {
+					s.saveStatus = "Saving..."
+					return s, saveLogsCmd(m.eventsViewer.rawEvents)
 				}
 			}
 		}

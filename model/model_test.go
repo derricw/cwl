@@ -2,7 +2,6 @@ package model
 
 import (
 	"errors"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -52,7 +51,6 @@ func TestInitialModelWithGroup(t *testing.T) {
 // bubbles list component fills its full height, making content below it invisible.
 func TestGroupsStateErrorUpdatesTitle(t *testing.T) {
 	m := InitialModel(testDeps(), "", "")
-	m.Log = io.Discard
 	msg := errMsg{err: errors.New("access denied")}
 	newModel, _ := m.Update(msg)
 	updated := newModel.(model)
@@ -64,7 +62,6 @@ func TestGroupsStateErrorUpdatesTitle(t *testing.T) {
 // TestStreamsStateErrorUpdatesTitle verifies error display in the streams view title.
 func TestStreamsStateErrorUpdatesTitle(t *testing.T) {
 	m := InitialModel(testDeps(), "/aws/test", "")
-	m.Log = io.Discard
 	msg := errMsg{err: errors.New("throttled")}
 	newModel, _ := m.Update(msg)
 	updated := newModel.(model)
@@ -78,7 +75,6 @@ func TestStreamsStateErrorUpdatesTitle(t *testing.T) {
 // use a list component, so it can't use the title bar approach).
 func TestEventsStateErrorSetsErrorText(t *testing.T) {
 	m := InitialModel(testDeps(), "", "")
-	m.Log = io.Discard
 	m.state = &EventsState{}
 	msg := errMsg{err: errors.New("connection refused")}
 	newModel, _ := m.Update(msg)
@@ -93,7 +89,6 @@ func TestEventsStateErrorSetsErrorText(t *testing.T) {
 // a missing nil check previously caused a crash.
 func TestGroupsStateSelectEmptyList(t *testing.T) {
 	m := InitialModel(testDeps(), "", "")
-	m.Log = io.Discard
 	// Send enter key on empty list — should not panic
 	msg := tea.KeyMsg{Type: tea.KeyEnter}
 	newModel, _ := m.Update(msg)
@@ -171,7 +166,6 @@ func TestSaveLogsCmdEmptyEvents(t *testing.T) {
 // appends to the old list, mixing streams from different groups.
 func TestGroupSelectClearsStreams(t *testing.T) {
 	m := InitialModel(testDeps(), "", "")
-	m.Log = io.Discard
 
 	m.logStreams = []types.LogStream{
 		{LogStreamName: aws.String("old-stream")},
@@ -227,7 +221,6 @@ func TestInitialModelWithStreamFilter(t *testing.T) {
 // would break keyboard navigation (j/k/arrows).
 func TestStreamFilterClearedAfterFirstBatch(t *testing.T) {
 	m := InitialModel(testDeps(), "", "")
-	m.Log = io.Discard
 	// Simulate being in StreamsState with a filter, as if launched with -g and -s
 	m.state = &StreamsState{}
 	m.streamFilter = "my-filter"
@@ -254,7 +247,6 @@ func TestStreamFilterClearedAfterFirstBatch(t *testing.T) {
 // groups list to navigate back to.
 func TestStreamsStateBackWithInitialGroup(t *testing.T) {
 	m := InitialModel(testDeps(), "", "")
-	m.Log = io.Discard
 	m.state = &StreamsState{}
 	m.initialGroup = "/aws/batch/job"
 
@@ -274,7 +266,6 @@ func TestStreamsStateBackWithInitialGroup(t *testing.T) {
 // streams view navigates back to GroupsState during normal TUI navigation.
 func TestStreamsStateBackWithoutInitialGroup(t *testing.T) {
 	m := InitialModel(testDeps(), "", "")
-	m.Log = io.Discard
 	// Manually set state to StreamsState as if user navigated there
 	m.state = &StreamsState{}
 	m.currentGroupName = "/aws/test"
@@ -292,7 +283,6 @@ func TestStreamsStateBackWithoutInitialGroup(t *testing.T) {
 // save is already in progress is a no-op (prevents concurrent saves).
 func TestStreamsStateSavePreventsConurrent(t *testing.T) {
 	m := InitialModel(testDeps(), "", "")
-	m.Log = io.Discard
 	m.state = &StreamsState{}
 	m.streamSaving = true
 
@@ -313,7 +303,6 @@ func TestStreamsStateSavePreventsConurrent(t *testing.T) {
 // clears the saving flag and sets the status message with the file path.
 func TestStreamsStateSaveLogsResult(t *testing.T) {
 	m := InitialModel(testDeps(), "", "")
-	m.Log = io.Discard
 	m.state = &StreamsState{}
 	m.streamSaving = true
 
@@ -333,7 +322,6 @@ func TestStreamsStateSaveLogsResult(t *testing.T) {
 // the saving flag and shows the error in the status message.
 func TestStreamsStateSaveLogsError(t *testing.T) {
 	m := InitialModel(testDeps(), "", "")
-	m.Log = io.Discard
 	m.state = &StreamsState{}
 	m.streamSaving = true
 

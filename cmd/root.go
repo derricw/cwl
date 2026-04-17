@@ -27,21 +27,19 @@ var rootCmd = &cobra.Command{
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		var log *os.File
-		if _, ok := os.LookupEnv("DEBUG"); ok {
-			var err error
-			log, err = os.OpenFile("messages.log", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
-			if err != nil {
-				os.Exit(1)
-			}
-		}
 		deps, err := model.NewDependencies(awsProfile)
 		if err != nil {
 			fmt.Printf("Error creating dependencies: %v", err)
 			os.Exit(1)
 		}
 		m := model.InitialModel(deps, logGroup, streamFilter)
-		m.Log = log
+		if _, ok := os.LookupEnv("DEBUG"); ok {
+			logFile, err := os.OpenFile("messages.log", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
+			if err != nil {
+				os.Exit(1)
+			}
+			m.Log = logFile
+		}
 		p := tea.NewProgram(m, tea.WithAltScreen())
 		if _, err := p.Run(); err != nil {
 			fmt.Printf("Alas, there's been an error: %v", err)
