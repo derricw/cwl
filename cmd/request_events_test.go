@@ -71,6 +71,8 @@ func collectEvents(ch chan Event) []Event {
 	return result
 }
 
+// TestRequestEventsLimit verifies that the --limit flag stops fetching after
+// the specified number of events, even when more are available from the API.
 func TestRequestEventsLimit(t *testing.T) {
 	client := &mockEventsClient{
 		pages: []mockPage{
@@ -97,6 +99,8 @@ func TestRequestEventsLimit(t *testing.T) {
 	}
 }
 
+// TestRequestEventsNoLimit verifies that all events are fetched across
+// multiple pages when no limit is set (limit=0).
 func TestRequestEventsNoLimit(t *testing.T) {
 	client := &mockEventsClient{
 		pages: []mockPage{
@@ -122,6 +126,9 @@ func TestRequestEventsNoLimit(t *testing.T) {
 	}
 }
 
+// TestRequestEventsEmptyPageBailout verifies that requestEvents stops after
+// maxEmptyPages consecutive empty responses with changing tokens. Without this,
+// sparse streams with no events but changing pagination tokens would loop forever.
 func TestRequestEventsEmptyPageBailout(t *testing.T) {
 	oldFollow := follow
 	oldMax := maxEmptyPages
@@ -160,6 +167,9 @@ func TestRequestEventsEmptyPageBailout(t *testing.T) {
 	}
 }
 
+// TestRequestEventsEmptyPagesResetOnData verifies that the empty page counter
+// resets when real events arrive. This ensures sparse-but-valid streams with
+// intermittent empty gaps still paginate correctly.
 func TestRequestEventsEmptyPagesResetOnData(t *testing.T) {
 	oldFollow := follow
 	oldMax := maxEmptyPages
