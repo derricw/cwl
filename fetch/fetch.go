@@ -39,12 +39,18 @@ func CreateClient(profileName string) (interfaces.CloudWatchLogsClient, error) {
 	return cloudwatchlogs.NewFromConfig(cfg), nil
 }
 
-func FetchLogGroups(client interfaces.CloudWatchLogsClient) ([]types.LogGroup, error) {
+// FetchLogGroups retrieves log groups, optionally filtered server-side by pattern.
+// The pattern parameter maps to DescribeLogGroups' LogGroupNamePattern field.
+func FetchLogGroups(client interfaces.CloudWatchLogsClient, pattern string) ([]types.LogGroup, error) {
 	groups := make([]types.LogGroup, 0)
 	var nextToken *string
 
 	for {
-		output, err := client.DescribeLogGroups(context.TODO(), &cloudwatchlogs.DescribeLogGroupsInput{NextToken: nextToken})
+		input := &cloudwatchlogs.DescribeLogGroupsInput{NextToken: nextToken}
+		if pattern != "" {
+			input.LogGroupNamePattern = &pattern
+		}
+		output, err := client.DescribeLogGroups(context.TODO(), input)
 		if err != nil {
 			return nil, err
 		}

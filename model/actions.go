@@ -24,7 +24,7 @@ func NewLoadGroupsAction(deps *Dependencies) *LoadGroupsAction {
 
 func (a *LoadGroupsAction) Execute() tea.Cmd {
 	return func() tea.Msg {
-		logGroups, err := fetch.FetchLogGroups(a.deps.Client)
+		logGroups, err := fetch.FetchLogGroups(a.deps.Client, "")
 		if err != nil {
 			return errMsg{err}
 		}

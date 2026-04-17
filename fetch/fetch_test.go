@@ -60,7 +60,7 @@ func TestFetchLogGroups(t *testing.T) {
 		},
 	}
 
-	groups, err := FetchLogGroups(mockClient)
+	groups, err := FetchLogGroups(mockClient, "")
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}

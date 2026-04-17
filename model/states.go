@@ -261,7 +261,7 @@ func (s *EventsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 			}
 			if !m.eventsViewer.loading {
 				switch msg.String() {
-			case m.config.KeyBinds.ScrollBottom:
+			case m.config.KeyBinds.ScrollBottom, "G":
 				m.eventsViewer.GotoBottom()
 				return s, nil
 			case m.config.KeyBinds.ScrollTop:

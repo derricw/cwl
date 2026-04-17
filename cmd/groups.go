@@ -14,8 +14,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 )
 
+var groupFilter string
+
 func init() {
 	groupsCmd.PersistentFlags().BoolVarP(&jsonOutput, "json", "", false, "Output full json")
+	groupsCmd.PersistentFlags().StringVarP(&groupFilter, "filter", "f", "", "Server-side pattern to filter log groups")
 	rootCmd.AddCommand(groupsCmd)
 }
 
@@ -48,7 +51,11 @@ var groupsCmd = &cobra.Command{
 		for {
 
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			output, err := client.DescribeLogGroups(ctx, &cloudwatchlogs.DescribeLogGroupsInput{NextToken: nextToken})
+			input := &cloudwatchlogs.DescribeLogGroupsInput{NextToken: nextToken}
+			if groupFilter != "" {
+				input.LogGroupNamePattern = &groupFilter
+			}
+			output, err := client.DescribeLogGroups(ctx, input)
 			if err != nil {
 				log.Fatal(err)
 			}

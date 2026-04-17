@@ -24,7 +24,7 @@ var prefix string
 func init() {
 	streamsCmd.PersistentFlags().BoolVarP(&jsonOutput, "json", "", false, "Output full json")
 	streamsCmd.PersistentFlags().BoolVarP(&follow, "follow", "f", false, "Keep checking for new streams with events")
-	streamsCmd.PersistentFlags().StringVar(&prefix, "prefix", "", "Filter streams by prefix")
+	streamsCmd.PersistentFlags().StringVarP(&prefix, "prefix", "P", "", "Filter streams by prefix")
 	rootCmd.AddCommand(streamsCmd)
 }
 
