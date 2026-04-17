@@ -76,7 +76,9 @@ func (e *Event) Render(w io.Writer) {
 	}
 }
 
-// read events from a channel and render them as they come in
+// writeEvents reads events from a channel and renders them to stdout.
+// Flushes the buffer when the channel is drained (len==0) so output appears
+// promptly in follow mode, while still batching writes during bulk pagination.
 func writeEvents(events <-chan Event) {
 	w := bufio.NewWriter(os.Stdout)
 	defer w.Flush()
@@ -89,6 +91,9 @@ func writeEvents(events <-chan Event) {
 }
 
 // requestEvents fetches events from a log stream and sends them to the output channel.
+// Supports a limit to cap total events fetched (0 = unlimited).
+// In non-follow mode, bails out after maxEmptyPages consecutive empty responses
+// with changing tokens to avoid infinite loops on sparse streams.
 func requestEvents(client interfaces.CloudWatchLogsClient, groupName, streamName string, outputChan chan Event, style *lipgloss.Style, limit int) error {
 	var nextToken *string
 	var interval time.Duration

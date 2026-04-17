@@ -14,6 +14,11 @@ import (
 	"github.com/derricw/cwl/interfaces"
 )
 
+// CreateClient builds a CloudWatch Logs client with short HTTP timeouts.
+// The short dial timeout (2s) ensures that credential resolution fails fast
+// on non-EC2 machines where IMDS (169.254.169.254) is unreachable, rather than
+// hanging for minutes on retries. The SDK's default retry behavior for
+// throttling is preserved since we don't override MaxAttempts.
 func CreateClient(profileName string) (interfaces.CloudWatchLogsClient, error) {
 	httpClient := &http.Client{
 		Timeout: 5 * time.Second,

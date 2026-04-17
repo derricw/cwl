@@ -27,6 +27,9 @@ type GroupsState struct{}
 
 func (s *GroupsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 	switch msg := msg.(type) {
+	// Errors are shown in the list title bar since the bubbles list component
+	// fills its full allocated height, making content appended below it invisible
+	// in alt screen mode.
 	case errMsg:
 		m.groupsList.Model.Title = "Log Groups - " + m.config.Styles.ErrorStyle.Render("Error: "+msg.Error())
 		return s, nil
@@ -37,11 +40,12 @@ func (s *GroupsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 		case m.config.KeyBinds.Back:
 			return s, nil
 		case m.config.KeyBinds.Select:
+			// Guard against nil SelectedItem — list returns nil when empty (e.g. no credentials)
 			if !m.groupsList.Model.SettingFilter() {
 				if selected := m.groupsList.Model.SelectedItem(); selected != nil {
 					groupName := selected.(item).Title()
 					m.currentGroupName = groupName
-					m.logStreams = nil
+					m.logStreams = nil // clear stale streams from previous group
 					m.streamFetchID++
 					return &StreamsState{}, NewLoadStreamsAction(m.deps, groupName, m.streamFetchID).Execute()
 				}
@@ -116,6 +120,7 @@ func (s *StreamsState) Update(msg tea.Msg, m *model) (State, tea.Cmd) {
 				m.streamsList.Model.ResetFilter()
 				return s, nil
 			}
+			// When launched with -g there's no groups list to go back to, so quit instead
 			if m.initialGroup != "" {
 				return s, tea.Quit
 			}
@@ -336,6 +341,8 @@ func (s *EventsState) tickCmd() tea.Cmd {
 func (s *EventsState) Exit(m *model) {
 }
 
+// saveLogsCmd writes already-loaded events from the events viewer to disk.
+// Used in EventsState where events are already in memory.
 func saveLogsCmd(events []types.OutputLogEvent) tea.Cmd {
 	return func() tea.Msg {
 		home, err := os.UserHomeDir()
@@ -362,6 +369,10 @@ func saveLogsCmd(events []types.OutputLogEvent) tea.Cmd {
 	}
 }
 
+// saveStreamCmd fetches all events for a stream from the API and writes them
+// directly to disk. Unlike saveLogsCmd, this streams events without loading
+// them all into memory, so it works for arbitrarily large streams.
+// Used in StreamsState to save a stream without opening the events view.
 func saveStreamCmd(deps *Dependencies, groupName, streamName string) tea.Cmd {
 	return func() tea.Msg {
 		home, err := os.UserHomeDir()

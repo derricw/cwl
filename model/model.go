@@ -72,19 +72,19 @@ type model struct {
 	currentStreamName string
 	wrapEnabled       bool
 	showTimestamps    bool
-	streamFetchID     int
+	streamFetchID     int // incremented on each new stream fetch to discard stale partial results
 	previewFetchID    int
 	previewStream     string
 	previewContent    string
 	termWidth         int
 	termHeight        int
 	previewEnabled    bool
-	initialGroup      string
-	currentGroupName  string
-	streamFilter      string
-	errorText         string
+	initialGroup      string   // set via -g flag; when non-empty, TUI starts in StreamsState and esc quits
+	currentGroupName  string   // tracks the active group across state transitions
+	streamFilter      string   // set via -s flag; applied once on first stream batch then cleared
+	errorText         string   // used by EventsState to show errors in footer
 	streamSaveStatus  string
-	streamSaving      bool
+	streamSaving      bool     // prevents concurrent stream saves
 }
 
 func (m model) Init() tea.Cmd {
@@ -106,9 +106,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.fetchID != m.streamFetchID {
 			return m, msg.nextCmd
 		}
+		// Allow updates when user isn't actively filtering. The streamFilter bypass
+		// lets the first batch through even though SetFilterText sets FilterApplied.
+		// After the first batch, streamFilter is cleared so subsequent batches are
+		// skipped once the user's filter is applied.
 		if !m.streamsList.Model.SettingFilter() && (m.streamsList.Model.FilterState() != list.FilterApplied || m.streamFilter != "") {
 			m.logStreams = append(m.logStreams, msg.streams...)
 			m.streamsList.SetStreams(msg.groupName, m.logStreams)
+			// Apply CLI filter once, then clear it. SetFilterText resets cursor to 0,
+			// so calling it on every batch would break keyboard navigation.
 			if m.streamFilter != "" {
 				m.streamsList.Model.SetFilterText(m.streamFilter)
 				m.streamFilter = ""
