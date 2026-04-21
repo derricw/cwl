@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/derricw/cwl/provider"
 )
 
 func testDeps() *Dependencies {
@@ -89,7 +89,6 @@ func TestEventsStateErrorSetsErrorText(t *testing.T) {
 // a missing nil check previously caused a crash.
 func TestGroupsStateSelectEmptyList(t *testing.T) {
 	m := InitialModel(testDeps(), "", "")
-	// Send enter key on empty list — should not panic
 	msg := tea.KeyMsg{Type: tea.KeyEnter}
 	newModel, _ := m.Update(msg)
 	updated := newModel.(model)
@@ -105,10 +104,10 @@ func TestSaveLogsCmd(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("HOME", dir)
 
-	events := []types.OutputLogEvent{
-		{Message: aws.String("line one\r\n")},
-		{Message: aws.String("line two")},
-		{Message: aws.String("line three\n")},
+	events := []provider.LogEvent{
+		{Message: "line one\r\n"},
+		{Message: "line two"},
+		{Message: "line three\n"},
 	}
 
 	cmd := saveLogsCmd(events)
@@ -167,15 +166,14 @@ func TestSaveLogsCmdEmptyEvents(t *testing.T) {
 func TestGroupSelectClearsStreams(t *testing.T) {
 	m := InitialModel(testDeps(), "", "")
 
-	m.logStreams = []types.LogStream{
-		{LogStreamName: aws.String("old-stream")},
+	m.logStreams = []provider.LogStream{
+		{Name: "old-stream"},
 	}
 
-	m.groupsList.SetGroups([]types.LogGroup{
-		{LogGroupName: aws.String("/aws/group1"), LogGroupArn: aws.String("arn1")},
+	m.groupsList.SetGroups([]provider.LogGroup{
+		{Name: "/aws/group1", Desc: "arn1"},
 	})
 
-	// Verify logStreams is non-nil before selection
 	if m.logStreams == nil {
 		t.Fatal("expected logStreams to be non-nil before selection")
 	}
@@ -202,7 +200,6 @@ func TestGroupSelectClearsStreams(t *testing.T) {
 // stream filter for later application when streams load.
 func TestInitialModelWithStreamFilter(t *testing.T) {
 	m := InitialModel(testDeps(), "", "")
-	// Manually set fields to test filter storage without triggering Init()
 	m.state = &StreamsState{}
 	m.initialGroup = "/aws/batch/job"
 	m.streamFilter = "my-filter"
@@ -221,16 +218,16 @@ func TestInitialModelWithStreamFilter(t *testing.T) {
 // would break keyboard navigation (j/k/arrows).
 func TestStreamFilterClearedAfterFirstBatch(t *testing.T) {
 	m := InitialModel(testDeps(), "", "")
-	// Simulate being in StreamsState with a filter, as if launched with -g and -s
 	m.state = &StreamsState{}
 	m.streamFilter = "my-filter"
 	m.streamFetchID = 1
 
+	now := time.Now()
 	msg := logStreamPartialMsg{
 		groupName: "/aws/batch/job",
-		streams: []types.LogStream{
-			{LogStreamName: aws.String("my-filter-stream-1"), LastEventTimestamp: aws.Int64(0)},
-			{LogStreamName: aws.String("other-stream"), LastEventTimestamp: aws.Int64(0)},
+		streams: []provider.LogStream{
+			{Name: "my-filter-stream-1", LastEventTime: &now},
+			{Name: "other-stream", LastEventTime: &now},
 		},
 		fetchID: 1,
 	}
@@ -266,7 +263,6 @@ func TestStreamsStateBackWithInitialGroup(t *testing.T) {
 // streams view navigates back to GroupsState during normal TUI navigation.
 func TestStreamsStateBackWithoutInitialGroup(t *testing.T) {
 	m := InitialModel(testDeps(), "", "")
-	// Manually set state to StreamsState as if user navigated there
 	m.state = &StreamsState{}
 	m.currentGroupName = "/aws/test"
 
@@ -286,8 +282,9 @@ func TestStreamsStateSavePreventsConurrent(t *testing.T) {
 	m.state = &StreamsState{}
 	m.streamSaving = true
 
-	m.streamsList.SetStreams("/aws/batch/job", []types.LogStream{
-		{LogStreamName: aws.String("stream-1"), LastEventTimestamp: aws.Int64(0)},
+	now := time.Now()
+	m.streamsList.SetStreams("/aws/batch/job", []provider.LogStream{
+		{Name: "stream-1", LastEventTime: &now},
 	})
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}}

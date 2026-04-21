@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/paginator"
@@ -14,6 +13,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/derricw/cwl/provider"
 )
 
 // Component interface for all UI components
@@ -52,12 +52,12 @@ func (g *GroupsList) SetSize(width, height int) {
 	g.Model.SetSize(width, height)
 }
 
-func (g *GroupsList) SetGroups(groups []types.LogGroup) {
+func (g *GroupsList) SetGroups(groups []provider.LogGroup) {
 	items := make([]list.Item, 0, len(groups))
 	for _, group := range groups {
 		items = append(items, item{
-			title: *group.LogGroupName,
-			desc:  *group.LogGroupArn,
+			title: group.Name,
+			desc:  group.Desc,
 		})
 	}
 	g.SetItems(items)
@@ -97,7 +97,7 @@ func (s *StreamsList) SetSize(width, height int) {
 	s.Model.SetSize(width, height)
 }
 
-func (s *StreamsList) SetStreams(groupName string, streams []types.LogStream) {
+func (s *StreamsList) SetStreams(groupName string, streams []provider.LogStream) {
 	if s == nil {
 		return
 	}
@@ -107,19 +107,13 @@ func (s *StreamsList) SetStreams(groupName string, streams []types.LogStream) {
 
 	items := make([]list.Item, 0, len(streams))
 	for _, stream := range streams {
-		// Handle potential nil pointers
-		streamName := "Unknown"
-		if stream.LogStreamName != nil {
-			streamName = *stream.LogStreamName
-		}
-		
 		lastEvent := "No events"
-		if stream.LastEventTimestamp != nil {
-			lastEvent = time.Unix(0, *stream.LastEventTimestamp*1000000).Format("2006-01-02 15:04:05")
+		if stream.LastEventTime != nil {
+			lastEvent = stream.LastEventTime.Format("2006-01-02 15:04:05")
 		}
 		
 		items = append(items, item{
-			title: streamName,
+			title: stream.Name,
 			desc:  lastEvent,
 		})
 	}
@@ -129,7 +123,7 @@ func (s *StreamsList) SetStreams(groupName string, streams []types.LogStream) {
 // EventsViewer component
 type EventsViewer struct {
 	viewport.Model
-	rawEvents     []types.OutputLogEvent
+	rawEvents     []provider.LogEvent
 	filterInput   textinput.Model
 	filtering     bool
 	filterValue   string
@@ -137,7 +131,7 @@ type EventsViewer struct {
 	paginating    bool
 	showTimestamps bool
 	spinner       spinner.Model
-	lastEventTime *int64
+	lastEventTime *time.Time
 }
 
 func NewEventsViewer() *EventsViewer {
@@ -194,7 +188,7 @@ func (e *EventsViewer) SetSize(width, height int) {
 	e.filterInput.Width = width - 10
 }
 
-func (e *EventsViewer) SetEvents(events []types.OutputLogEvent) {
+func (e *EventsViewer) SetEvents(events []provider.LogEvent) {
 	e.rawEvents = events
 	e.loading = len(events) == 0
 	e.RefreshContent(false)
@@ -223,7 +217,7 @@ func (e *EventsViewer) SpinnerView() string {
 	return e.spinner.View()
 }
 
-func (e *EventsViewer) AppendEvents(events []types.OutputLogEvent) {
+func (e *EventsViewer) AppendEvents(events []provider.LogEvent) {
 	e.loading = false
 	e.paginating = true
 	wasAtBottom := e.AtBottom()
@@ -237,7 +231,7 @@ func (e *EventsViewer) AppendEvents(events []types.OutputLogEvent) {
 	}
 }
 
-func (e *EventsViewer) GetLastEventTime() *int64 {
+func (e *EventsViewer) GetLastEventTime() *time.Time {
 	return e.lastEventTime
 }
 
@@ -274,13 +268,13 @@ var timestampStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("141"))
 func (e *EventsViewer) refreshContent(wrapEnabled, showTimestamps bool) {
 	var sb strings.Builder
 	for _, event := range e.rawEvents {
-		message := strings.ReplaceAll(*event.Message, "\r\n", "\n")
+		message := strings.ReplaceAll(event.Message, "\r\n", "\n")
 		message = strings.ReplaceAll(message, "\r", "")
 		if e.filterValue != "" && !strings.Contains(strings.ToLower(message), strings.ToLower(e.filterValue)) {
 			continue
 		}
 		if showTimestamps && event.Timestamp != nil {
-			ts := time.Unix(0, *event.Timestamp*int64(time.Millisecond)).Format("2006-01-02 15:04:05.000")
+			ts := event.Timestamp.Format("2006-01-02 15:04:05.000")
 			sb.WriteString(timestampStyle.Render(ts))
 			sb.WriteByte(' ')
 		}

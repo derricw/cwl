@@ -1,11 +1,11 @@
 package model
 
 import (
+	"fmt"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/derricw/cwl/fetch"
+	"github.com/derricw/cwl/provider"
 )
 
 // Action interface for command pattern
@@ -24,7 +24,7 @@ func NewLoadGroupsAction(deps *Dependencies) *LoadGroupsAction {
 
 func (a *LoadGroupsAction) Execute() tea.Cmd {
 	return func() tea.Msg {
-		logGroups, err := fetch.FetchLogGroups(a.deps.Client, "")
+		logGroups, err := a.deps.Backend.FetchGroups("")
 		if err != nil {
 			return errMsg{err}
 		}
@@ -47,20 +47,22 @@ func NewLoadStreamsAction(deps *Dependencies, groupName string, fetchID int) *Lo
 	}
 }
 
+var errMaxStreamsReached = fmt.Errorf("max streams reached")
+
 func (a *LoadStreamsAction) Execute() tea.Cmd {
 	ch := make(chan tea.Msg, 100)
 	go func() {
 		defer close(ch)
 		count := 0
-		err := fetch.FetchLogStreamsStreaming(a.deps.Client, a.groupName, func(streams []types.LogStream) error {
+		err := a.deps.Backend.FetchStreamsStreaming(a.groupName, func(streams []provider.LogStream) error {
 			count += len(streams)
 			ch <- logStreamPartialMsg{groupName: a.groupName, streams: streams, fetchID: a.fetchID}
 			if count >= 20000 {
-				return fetch.ErrMaxStreamsReached
+				return errMaxStreamsReached
 			}
 			return nil
 		})
-		if err != nil && err != fetch.ErrMaxStreamsReached {
+		if err != nil && err != errMaxStreamsReached {
 			ch <- errMsg{err}
 		}
 	}()
@@ -105,7 +107,7 @@ func (a *LoadEventsAction) Execute() tea.Cmd {
 		return logEventMsg{
 			groupName:  a.groupName,
 			streamName: a.streamName,
-			events:     []types.OutputLogEvent{},
+			events:     []provider.LogEvent{},
 		}
 	}
 }
@@ -128,7 +130,7 @@ func (a *LoadEventsStreamingAction) Execute() tea.Cmd {
 	ch := make(chan tea.Msg, 100)
 	go func() {
 		defer close(ch)
-		err := fetch.FetchLogEventsStreaming(a.deps.Client, a.groupName, a.streamName, func(events []types.OutputLogEvent) error {
+		err := a.deps.Backend.FetchEventsStreaming(a.groupName, a.streamName, func(events []provider.LogEvent) error {
 			ch <- logEventPartialMsg{events: events}
 			return nil
 		})
@@ -171,7 +173,7 @@ func NewLoadPreviewEventsAction(deps *Dependencies, groupName, streamName string
 
 func (a *LoadPreviewEventsAction) Execute() tea.Cmd {
 	return func() tea.Msg {
-		events, err := fetch.FetchLastLogEvents(a.deps.Client, a.groupName, a.streamName, 20)
+		events, err := a.deps.Backend.FetchLastEvents(a.groupName, a.streamName, 20)
 		if err != nil {
 			return nil
 		}
@@ -183,10 +185,10 @@ type PollNewEventsAction struct {
 	deps       *Dependencies
 	groupName  string
 	streamName string
-	startTime  *int64
+	startTime  *time.Time
 }
 
-func NewPollNewEventsAction(deps *Dependencies, groupName, streamName string, startTime *int64) *PollNewEventsAction {
+func NewPollNewEventsAction(deps *Dependencies, groupName, streamName string, startTime *time.Time) *PollNewEventsAction {
 	return &PollNewEventsAction{
 		deps:       deps,
 		groupName:  groupName,
@@ -197,7 +199,7 @@ func NewPollNewEventsAction(deps *Dependencies, groupName, streamName string, st
 
 func (a *PollNewEventsAction) Execute() tea.Cmd {
 	return func() tea.Msg {
-		events, err := fetch.FetchNewLogEvents(a.deps.Client, a.groupName, a.streamName, a.startTime)
+		events, err := a.deps.Backend.FetchNewEvents(a.groupName, a.streamName, a.startTime)
 		if err != nil {
 			return errMsg{err}
 		}

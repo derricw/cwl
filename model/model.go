@@ -6,35 +6,35 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/derricw/cwl/provider"
 )
 
-type logGroupMsg []types.LogGroup
+type logGroupMsg []provider.LogGroup
 type logStreamMsg struct {
 	groupName string
-	streams   []types.LogStream
+	streams   []provider.LogStream
 }
 type logStreamPartialMsg struct {
 	groupName string
-	streams   []types.LogStream
+	streams   []provider.LogStream
 	nextCmd   tea.Cmd
 	fetchID   int
 }
 type logEventMsg struct {
 	groupName  string
 	streamName string
-	events     []types.OutputLogEvent
+	events     []provider.LogEvent
 }
 type logEventPartialMsg struct {
-	events  []types.OutputLogEvent
+	events  []provider.LogEvent
 	nextCmd tea.Cmd
 }
-type newEventsMsg []types.OutputLogEvent
+type newEventsMsg []provider.LogEvent
 type previewEventsMsg struct {
 	streamName string
-	events     []types.OutputLogEvent
+	events     []provider.LogEvent
 	fetchID    int
 }
 type tickMsg time.Time
@@ -64,8 +64,8 @@ type model struct {
 	groupsList        *GroupsList
 	streamsList       *StreamsList
 	eventsViewer      *EventsViewer
-	logGroups         []types.LogGroup
-	logStreams        []types.LogStream
+	logGroups         []provider.LogGroup
+	logStreams        []provider.LogStream
 	state             State
 	deps              *Dependencies
 	config            *Config
@@ -191,15 +191,13 @@ func InitialModel(deps *Dependencies, group, streamFilter string) model {
 	return m
 }
 
-func formatPreviewEvents(events []types.OutputLogEvent) string {
+func formatPreviewEvents(events []provider.LogEvent) string {
 	var sb strings.Builder
 	for _, e := range events {
-		if e.Message != nil {
-			msg := strings.ReplaceAll(*e.Message, "\r\n", "\n")
-			msg = strings.ReplaceAll(msg, "\r", "")
-			sb.WriteString(strings.TrimRight(msg, "\n"))
-			sb.WriteByte('\n')
-		}
+		msg := strings.ReplaceAll(e.Message, "\r\n", "\n")
+		msg = strings.ReplaceAll(msg, "\r", "")
+		sb.WriteString(strings.TrimRight(msg, "\n"))
+		sb.WriteByte('\n')
 	}
 	return sb.String()
 }

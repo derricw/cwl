@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/derricw/cwl/model"
+	"github.com/derricw/cwl/provider/cloudwatch"
 )
 
 var jsonOutput bool
@@ -27,11 +28,12 @@ var rootCmd = &cobra.Command{
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		deps, err := model.NewDependencies(awsProfile)
+		backend, err := cloudwatch.New(awsProfile)
 		if err != nil {
-			fmt.Printf("Error creating dependencies: %v", err)
+			fmt.Printf("Error creating backend: %v", err)
 			os.Exit(1)
 		}
+		deps := &model.Dependencies{Profile: awsProfile, Backend: backend}
 		m := model.InitialModel(deps, logGroup, streamFilter)
 		if _, ok := os.LookupEnv("DEBUG"); ok {
 			logFile, err := os.OpenFile("messages.log", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)

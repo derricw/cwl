@@ -1,25 +1,12 @@
 package model
 
 import (
-	"github.com/derricw/cwl/fetch"
-	"github.com/derricw/cwl/interfaces"
+	"github.com/derricw/cwl/provider"
 )
 
-// Dependencies holds all external dependencies
+// Dependencies holds all external dependencies for the TUI.
+// Backend is the log provider (CloudWatch, MLflow, etc.).
 type Dependencies struct {
 	Profile string
-	Client  interfaces.CloudWatchLogsClient
-}
-
-// NewDependencies creates dependencies with AWS client
-func NewDependencies(profile string) (*Dependencies, error) {
-	client, err := fetch.CreateClient(profile)
-	if err != nil {
-		return nil, err
-	}
-	
-	return &Dependencies{
-		Profile: profile,
-		Client:  client,
-	}, nil
+	Backend provider.Backend
 }

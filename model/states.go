@@ -7,11 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/derricw/cwl/fetch"
+	"github.com/derricw/cwl/provider"
 )
 
 // State interface for state machine
@@ -351,7 +350,7 @@ func (s *EventsState) Exit(m *model) {
 
 // saveLogsCmd writes already-loaded events from the events viewer to disk.
 // Used in EventsState where events are already in memory.
-func saveLogsCmd(events []types.OutputLogEvent) tea.Cmd {
+func saveLogsCmd(events []provider.LogEvent) tea.Cmd {
 	return func() tea.Msg {
 		home, err := os.UserHomeDir()
 		if err != nil {
@@ -365,10 +364,8 @@ func saveLogsCmd(events []types.OutputLogEvent) tea.Cmd {
 		path := filepath.Join(dir, filename)
 		var sb strings.Builder
 		for _, e := range events {
-			if e.Message != nil {
-				sb.WriteString(strings.TrimRight(*e.Message, "\r\n"))
-				sb.WriteByte('\n')
-			}
+			sb.WriteString(strings.TrimRight(e.Message, "\r\n"))
+			sb.WriteByte('\n')
 		}
 		if err := os.WriteFile(path, []byte(sb.String()), 0o644); err != nil {
 			return saveLogsMsg{err: err}
@@ -398,13 +395,11 @@ func saveStreamCmd(deps *Dependencies, groupName, streamName string) tea.Cmd {
 			return saveLogsMsg{err: err}
 		}
 		defer f.Close()
-		err = fetch.FetchLogEventsStreaming(deps.Client, groupName, streamName, func(events []types.OutputLogEvent) error {
+		err = deps.Backend.FetchEventsStreaming(groupName, streamName, func(events []provider.LogEvent) error {
 			for _, e := range events {
-				if e.Message != nil {
-					msg := strings.TrimRight(*e.Message, "\r\n")
-					if _, err := f.WriteString(msg + "\n"); err != nil {
-						return err
-					}
+				msg := strings.TrimRight(e.Message, "\r\n")
+				if _, err := f.WriteString(msg + "\n"); err != nil {
+					return err
 				}
 			}
 			return nil
