@@ -81,3 +81,7 @@ Use with no arguments to start a TUI:
 ```bash
 cwl
 ```
+
+### MLflow
+
+cwl also supports browsing MLflow experiments and runs. See the [MLflow guide](docs/mlflow.md) for setup and usage.
